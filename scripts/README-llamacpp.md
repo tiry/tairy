@@ -91,7 +91,7 @@ Test model performance with llama-bench:
 
 ### 4. Server Mode
 
-Start an HTTP API server:
+Start an HTTP API server (binds to 0.0.0.0 for network access):
 
 ```bash
 # Default port (8080)
@@ -104,8 +104,13 @@ Start an HTTP API server:
 ./scripts/run-llamacpp.sh -m ~/models/Llama-3-8B.gguf -b vulkan --server --port 8000
 ```
 
+**Server Features:**
+- Binds to `0.0.0.0` (accessible from network, not just localhost)
+- Jinja templating enabled for chat templates
+- OpenAI-compatible API endpoints
+
 **Server Endpoints:**
-- Web UI: `http://localhost:8080`
+- Web UI: `http://localhost:8080` or `http://<your-ip>:8080`
 - Chat Completion API: `http://localhost:8080/v1/chat/completions`
 - Completions API: `http://localhost:8080/v1/completions`
 - Embeddings API: `http://localhost:8080/v1/embeddings`

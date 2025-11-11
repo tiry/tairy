@@ -172,18 +172,23 @@ elif [ "$SERVER_MODE" = true ]; then
     echo "Backend:    $BACKEND"
     echo "Executable: $EXE_PATH"
     echo "Model:      $MODEL_PATH"
+    echo "Host:       0.0.0.0"
     echo "Port:       $SERVER_PORT"
     echo "------------------------------------------------"
     echo ""
-    echo "Server will be accessible at: http://localhost:$SERVER_PORT"
-    echo "Web UI:          http://localhost:$SERVER_PORT"
-    echo "API endpoint:    http://localhost:$SERVER_PORT/v1/chat/completions"
+    echo "Server will be accessible at:"
+    echo "  Local:     http://localhost:$SERVER_PORT"
+    echo "  Network:   http://0.0.0.0:$SERVER_PORT"
+    echo "Web UI:      http://localhost:$SERVER_PORT"
+    echo "API endpoint: http://localhost:$SERVER_PORT/v1/chat/completions"
     echo ""
     echo "Press Ctrl+C to stop the server"
     echo "------------------------------------------------"
     
     # llama-server arguments
-    CMD_ARGS=("-m" "$MODEL_PATH" "-ngl" "999" "--port" "$SERVER_PORT" "-c" "4096")
+    # --host 0.0.0.0: Listen on all network interfaces
+    # --jinja: Enable jinja templating for chat templates
+    CMD_ARGS=("-m" "$MODEL_PATH" "-ngl" "999" "--host" "0.0.0.0" "--port" "$SERVER_PORT" "-c" "4096" "--jinja")
     
 else
     # CLI mode (default): use llama-cli
