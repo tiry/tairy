@@ -10,20 +10,30 @@ DEFAULT_BACKEND="rocm" # "rocm" or "vulkan"
 
 # --- Helper Functions ---
 print_usage() {
-    echo "Usage: $0 -m <model_path> [-b <backend>] [-p <prompt>] [-i]"
+    echo "Usage: $0 -m <model_path> [-b <backend>] [-p <prompt>] [-i] [--benchmark] [--server] [--port <port>]"
     echo ""
     echo "Options:"
     echo "  -m <path>   (Required) Path to the .gguf model file."
     echo "  -b <type>   Backend to use: 'rocm' or 'vulkan'. (Default: $DEFAULT_BACKEND)"
     echo "  -p \"<prompt>\" Provide a single prompt. This will override interactive mode."
     echo "  -i          Start in interactive mode. (This is the default if no -p is given)."
+    echo "  --benchmark Run llama-bench to benchmark the model performance."
+    echo "  --server    Start llama-server to serve the model over HTTP."
+    echo "  --port <n>  Port for server mode (default: 8080)."
     echo "  -h          Show this help message."
     echo ""
-    echo "Example (ROCm, Interactive):"
-    echo "  $0 -m ./models/Llama-3-8B.gguf"
+    echo "Examples:"
+    echo "  Interactive (ROCm):"
+    echo "    $0 -m ./models/Llama-3-8B.gguf"
     echo ""
-    echo "Example (Vulkan, Single Prompt):"
-    echo "  $0 -m ./models/my-model.gguf -b vulkan -p \"What is the capital of France?\""
+    echo "  Single Prompt (Vulkan):"
+    echo "    $0 -m ./models/my-model.gguf -b vulkan -p \"What is the capital of France?\""
+    echo ""
+    echo "  Benchmark:"
+    echo "    $0 -m ./models/Llama-3-8B.gguf --benchmark"
+    echo ""
+    echo "  Server Mode:"
+    echo "    $0 -m ./models/Llama-3-8B.gguf --server --port 8080"
 }
 
 # --- Script Main ---
@@ -33,35 +43,53 @@ BACKEND=$DEFAULT_BACKEND
 MODEL_PATH="/home/tiry/models/Llama-3-8B-Instruct.Q5_K_M.gguf"
 PROMPT=""
 INTERACTIVE=false # This is just a placeholder, the logic prioritizes the prompt.
+BENCHMARK_MODE=false
+SERVER_MODE=false
+SERVER_PORT=8080
 
 # Parse command-line options
-while getopts ":b:m:p:ih" opt; do
-  case $opt in
-    b)
-      BACKEND="$OPTARG"
+# Handle long options first
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --benchmark)
+      BENCHMARK_MODE=true
+      shift
       ;;
-    m)
-      MODEL_PATH="$OPTARG"
+    --server)
+      SERVER_MODE=true
+      shift
       ;;
-    p)
-      PROMPT="$OPTARG"
+    --port)
+      SERVER_PORT="$2"
+      shift 2
       ;;
-    i)
-      INTERACTIVE=true # User can still pass -i for clarity
+    -b)
+      BACKEND="$2"
+      shift 2
       ;;
-    h)
+    -m)
+      MODEL_PATH="$2"
+      shift 2
+      ;;
+    -p)
+      PROMPT="$2"
+      shift 2
+      ;;
+    -i)
+      INTERACTIVE=true
+      shift
+      ;;
+    -h|--help)
       print_usage
       exit 0
       ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
+    -*)
+      echo "Invalid option: $1" >&2
       print_usage
       exit 1
       ;;
-    :)
-      echo "Option -$OPTARG requires an argument." >&2
-      print_usage
-      exit 1
+    *)
+      shift
       ;;
   esac
 done
@@ -81,18 +109,40 @@ if [ ! -f "$MODEL_PATH" ]; then
     exit 1
 fi
 
-# 3. Select the executable based on the chosen backend
-EXE_PATH=""
+# 3. Validate that only one mode is selected
+MODE_COUNT=0
+[ "$BENCHMARK_MODE" = true ] && ((MODE_COUNT++))
+[ "$SERVER_MODE" = true ] && ((MODE_COUNT++))
+
+if [ $MODE_COUNT -gt 1 ]; then
+    echo "Error: Cannot use --benchmark and --server together. Choose one mode."
+    exit 1
+fi
+
+# 4. Determine build directory based on backend
+BUILD_DIR=""
 if [ "$BACKEND" = "rocm" ]; then
-    EXE_PATH="${ROCM_BUILD_DIR}/bin/llama-cli"
+    BUILD_DIR="$ROCM_BUILD_DIR"
 elif [ "$BACKEND" = "vulkan" ]; then
-    EXE_PATH="${VULKAN_BUILD_DIR}/bin/llama-cli"
+    BUILD_DIR="$VULKAN_BUILD_DIR"
 else
     echo "Error: Invalid backend '$BACKEND'. Choose 'rocm' or 'vulkan'."
     exit 1
 fi
 
-# 4. Check if the executable file exists
+# 5. Select the executable based on the mode
+EXE_NAME=""
+if [ "$BENCHMARK_MODE" = true ]; then
+    EXE_NAME="llama-bench"
+elif [ "$SERVER_MODE" = true ]; then
+    EXE_NAME="llama-server"
+else
+    EXE_NAME="llama-cli"
+fi
+
+EXE_PATH="${BUILD_DIR}/bin/${EXE_NAME}"
+
+# 6. Check if the executable file exists
 if [ ! -x "$EXE_PATH" ]; then
     echo "Error: Executable not found or not executable at: $EXE_PATH"
     echo "Please double-check your build directories."
@@ -103,28 +153,62 @@ fi
 
 # We use a Bash array to safely build the command arguments
 # This handles spaces in paths and prompts correctly
-CMD_ARGS=("-m" "$MODEL_PATH" "-ngl" "999" "--color")
+CMD_ARGS=()
 
-# *** UPDATED LOGIC ***
-# If a prompt is provided, use it. Otherwise, default to interactive.
-if [ -n "$PROMPT" ]; then
-    # A prompt was provided. This takes priority.
-    CMD_ARGS+=("-p" "$PROMPT")
+if [ "$BENCHMARK_MODE" = true ]; then
+    # Benchmark mode: use llama-bench
+    echo "--- Starting llama-bench (Benchmark Mode) ---"
+    echo "Backend:    $BACKEND"
+    echo "Executable: $EXE_PATH"
+    echo "Model:      $MODEL_PATH"
+    echo "---------------------------------------------"
+    
+    # llama-bench arguments
+    CMD_ARGS=("-m" "$MODEL_PATH" "-ngl" "999")
+    
+elif [ "$SERVER_MODE" = true ]; then
+    # Server mode: use llama-server
+    echo "--- Starting llama-server (HTTP Server Mode) ---"
+    echo "Backend:    $BACKEND"
+    echo "Executable: $EXE_PATH"
+    echo "Model:      $MODEL_PATH"
+    echo "Port:       $SERVER_PORT"
+    echo "------------------------------------------------"
+    echo ""
+    echo "Server will be accessible at: http://localhost:$SERVER_PORT"
+    echo "Web UI:          http://localhost:$SERVER_PORT"
+    echo "API endpoint:    http://localhost:$SERVER_PORT/v1/chat/completions"
+    echo ""
+    echo "Press Ctrl+C to stop the server"
+    echo "------------------------------------------------"
+    
+    # llama-server arguments
+    CMD_ARGS=("-m" "$MODEL_PATH" "-ngl" "999" "--port" "$SERVER_PORT" "-c" "4096")
+    
 else
-    # No prompt was provided, default to interactive mode.
-    # The -i flag is now just for explicit clarity, but this is the default.
-    CMD_ARGS+=("-i")
+    # CLI mode (default): use llama-cli
+    echo "--- Starting llama-cli (CLI Mode) ---"
+    echo "Backend:    $BACKEND"
+    echo "Executable: $EXE_PATH"
+    echo "Model:      $MODEL_PATH"
+    echo "-------------------------------------"
+    
+    # llama-cli arguments
+    CMD_ARGS=("-m" "$MODEL_PATH" "-ngl" "999" "--color")
+    
+    # If a prompt is provided, use it. Otherwise, default to interactive.
+    if [ -n "$PROMPT" ]; then
+        # A prompt was provided. This takes priority.
+        CMD_ARGS+=("-p" "$PROMPT")
+    else
+        # No prompt was provided, default to interactive mode.
+        CMD_ARGS+=("-i")
+    fi
+    
+    # Add context size
+    CMD_ARGS+=("-c" "4096")
 fi
 
-# Add any other flags you always want (e.g., context size)
-CMD_ARGS+=("-c" "4096")
-
 # --- Final Execution ---
-echo "--- Starting llama.cpp ---"
-echo "Backend:   $BACKEND"
-echo "Executable: $EXE_PATH"
-echo "Model:     $MODEL_PATH"
-echo "--------------------------"
-
 # Use "$@" to expand the array properly, preserving quotes
 "$EXE_PATH" "${CMD_ARGS[@]}"
