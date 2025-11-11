@@ -1,0 +1,18 @@
+[Unit]
+Description=Text Generation Web UI
+After=network.target
+
+[Service]
+Type=simple
+User=tiry
+Group=tiry
+
+WorkingDirectory=/home/tiry/text-generation-webui
+
+ExecStart=/home/tiry/text-generation-webui/start_linux.sh --listen --api --listen-host 0.0.0.0 --model-dir /home/tiry/llama.cpp/models/
+
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
