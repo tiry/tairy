@@ -37,6 +37,7 @@ DRY_RUN=false
 BACKGROUND=false
 STATUS_ONLY=false
 STOP_PROCESS=false
+REENCODE_AUDIO=false
 FOLDER_PATH=""
 # Set runtime values from defaults
 ENCODER_MODE=$DEFAULT_ENCODER_MODE
@@ -355,6 +356,16 @@ if [ "$DRY_RUN" = false ]; then
     echo "Run started: $(date)" >> "$LOG_FILE"
     echo "Using config: $CONFIG_STRING" >> "$LOG_FILE"
     echo "--------------------------" >> "$LOG_FILE"
+    
+    # Create summary file header
+    SUMMARY_FILE="$FOLDER_PATH/conversion_summary.log"
+    echo "=== Video Conversion Summary ===" > "$SUMMARY_FILE"
+    echo "Run started: $(date)" >> "$SUMMARY_FILE"
+    echo "Config: $CONFIG_STRING" >> "$SUMMARY_FILE"
+    echo "" >> "$SUMMARY_FILE"
+    printf "%-50s | %-10s | %10s | %15s -> %-15s | %8s\n" "File" "Status" "Duration" "Size Before" "Size After" "Delta %" >> "$SUMMARY_FILE"
+    printf "%.s-" {1..130} >> "$SUMMARY_FILE"
+    echo "" >> "$SUMMARY_FILE"
 else
     echo -e "${YELLOW}--- DRY RUN MODE ENABLED ---${NC}"
     echo "No files will be changed. Log will not be written."
@@ -367,7 +378,7 @@ fi
 # Count total files to process
 TOTAL_FILES=$(find "$FOLDER_PATH" -maxdepth 1 -type f \( \
     -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o \
-    -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" \
+    -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" -o -iname "*.vid" \
 \) ! -name "*_src.*" ! -name "*_av1.*" | wc -l)
 
 PROCESSED=0
@@ -459,12 +470,37 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( \
     start_time=$(date +%s)
     original_size_bytes=$(stat -c%s "$source_file")
     
-    if ! "${ffmpeg_command[@]}"; then
-        echo -e "${RED}  ERROR: FFmpeg failed to encode $base_name.${NC}"
-        echo "[$(date)] ERROR: FFmpeg failed on $base_name ($CONFIG_STRING)" >> "$LOG_FILE"
-        FAILED=$((FAILED + 1))
+    # Try with audio copy first
+    if ! "${ffmpeg_command[@]}" 2>/dev/null; then
+        echo -e "${YELLOW}  Audio copy failed, retrying with audio re-encoding...${NC}"
         rm -f "$temp_output_name" # Clean up partial file
-        continue
+        
+        # Rebuild command with audio re-encoding instead of copy
+        ffmpeg_command_reencode=("${ffmpeg_command[@]}")
+        # Find and replace -c:a copy with -c:a aac -b:a 192k
+        for i in "${!ffmpeg_command_reencode[@]}"; do
+            if [[ "${ffmpeg_command_reencode[$i]}" == "-c:a" ]]; then
+                ffmpeg_command_reencode[$((i+1))]="aac"
+                # Insert audio bitrate after aac
+                ffmpeg_command_reencode=("${ffmpeg_command_reencode[@]:0:$((i+2))}" "-b:a" "192k" "${ffmpeg_command_reencode[@]:$((i+2))}")
+                break
+            fi
+        done
+        
+        if ! "${ffmpeg_command_reencode[@]}"; then
+            echo -e "${RED}  ERROR: FFmpeg failed to encode $base_name (even with audio re-encoding).${NC}"
+            echo "[$(date)] ERROR: FFmpeg failed on $base_name ($CONFIG_STRING)" >> "$LOG_FILE"
+            
+            # Add to summary file
+            original_size_hr=$(numfmt --to=iec --suffix=B $original_size_bytes)
+            printf "%-50s | %-10s | %10s | %15s -> %-15s | %7s\n" \
+                "${base_name:0:50}" "FAILED" "-" "$original_size_hr" "-" "-" >> "$SUMMARY_FILE"
+            
+            FAILED=$((FAILED + 1))
+            rm -f "$temp_output_name" # Clean up partial file
+            continue
+        fi
+        echo -e "${YELLOW}  Note: Audio was re-encoded due to stream compatibility issues${NC}"
     fi
 
     # FFmpeg succeeded, gather stats
@@ -495,6 +531,10 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( \
     # Log to file
     echo "[$(date)] SUCCESS: $base_name | Time: ${duration}s | Size: ${original_size_bytes}B -> ${new_size_bytes}B | Gain: ${size_gain_percent}%" >> "$LOG_FILE"
     
+    # Add to summary file
+    printf "%-50s | %-10s | %10s | %15s -> %-15s | %7s%%\n" \
+        "${base_name:0:50}" "SUCCESS" "${duration}s" "$original_size_hr" "$new_size_hr" "$size_gain_percent" >> "$SUMMARY_FILE"
+    
     # Increment success counter
     SUCCEEDED=$((SUCCEEDED + 1))
 
@@ -512,4 +552,18 @@ done
 echo -e "\n${GREEN}--- All tasks complete. ---${NC}"
 if [ "$DRY_RUN" = false ]; then
     echo "Log file written to: $LOG_FILE"
+    
+    # Add final summary to summary file
+    echo "" >> "$SUMMARY_FILE"
+    printf "%.s-" {1..130} >> "$SUMMARY_FILE"
+    echo "" >> "$SUMMARY_FILE"
+    echo "" >> "$SUMMARY_FILE"
+    echo "=== Final Summary ===" >> "$SUMMARY_FILE"
+    echo "Run completed: $(date)" >> "$SUMMARY_FILE"
+    echo "Total files processed: $PROCESSED" >> "$SUMMARY_FILE"
+    echo "Successful conversions: $SUCCEEDED" >> "$SUMMARY_FILE"
+    echo "Failed conversions: $FAILED" >> "$SUMMARY_FILE"
+    
+    echo ""
+    echo -e "${CYAN}Summary table written to: $SUMMARY_FILE${NC}"
 fi
