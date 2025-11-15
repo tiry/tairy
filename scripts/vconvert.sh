@@ -375,11 +375,11 @@ else
 fi
 
 # --- Main Processing Loop ---
+# Define video file extensions to process (single source of truth)
+VIDEO_EXTENSIONS=(-iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" -o -iname "*.vid")
+
 # Count total files to process
-TOTAL_FILES=$(find "$FOLDER_PATH" -maxdepth 1 -type f \( \
-    -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o \
-    -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" -o -iname "*.vid" \
-\) ! -name "*_src.*" ! -name "*_av1.*" | wc -l)
+TOTAL_FILES=$(find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) ! -name "*_src.*" ! -name "*_av1.*" | wc -l)
 
 PROCESSED=0
 SUCCEEDED=0
@@ -389,10 +389,7 @@ echo "Found $TOTAL_FILES video(s) to process."
 
 # Find common video files in the specified folder, but not in subfolders (-maxdepth 1).
 # Using -print0 and read -d '' to safely handle filenames with spaces.
-find "$FOLDER_PATH" -maxdepth 1 -type f \( \
-    -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o \
-    -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" \
-\) -print0 | while IFS= read -r -d '' source_file; do
+find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 | while IFS= read -r -d '' source_file; do
 
     # Extract file components
     base_name=$(basename "$source_file")
@@ -526,6 +523,26 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( \
     original_size_hr=$(numfmt --to=iec --suffix=B $original_size_bytes)
     new_size_hr=$(numfmt --to=iec --suffix=B $new_size_bytes)
 
+    # Check if new file is actually smaller than original
+    if [ "$new_size_bytes" -ge "$original_size_bytes" ]; then
+        echo -e "${YELLOW}  WARNING: Encoded file is NOT smaller than original!${NC}"
+        echo -e "${YELLOW}  Original: $original_size_hr | Encoded: $new_size_hr${NC}"
+        echo -e "${YELLOW}  Keeping original file, removing encoded version.${NC}"
+        
+        # Log the issue
+        echo "[$(date)] SKIPPED: $base_name | Time: ${duration}s | Size: ${original_size_bytes}B -> ${new_size_bytes}B | No size reduction" >> "$LOG_FILE"
+        
+        # Add to summary file as SKIPPED
+        printf "%-50s | %-10s | %10s | %15s -> %-15s | %7s%%\n" \
+            "${base_name:0:50}" "SKIPPED" "${duration}s" "$original_size_hr" "$new_size_hr" "$size_gain_percent" >> "$SUMMARY_FILE"
+        
+        # Remove the encoded file since it's not beneficial
+        rm -f "$temp_output_name"
+        
+        # Don't increment SUCCEEDED, but don't count as FAILED either
+        continue
+    fi
+    
     echo -e "${GREEN}  Success!${NC} Time: ${duration}s. Size: $original_size_hr -> $new_size_hr (${size_gain_percent}% gain)"
 
     # Log to file
