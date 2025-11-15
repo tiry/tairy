@@ -36,6 +36,7 @@ DEFAULT_CPU_PRESET="8"      # CPU Speed (CPU AV1: 0-13, fast: 8-10. CPU H.265: u
 DRY_RUN=false
 BACKGROUND=false
 STATUS_ONLY=false
+STOP_PROCESS=false
 FOLDER_PATH=""
 # Set runtime values from defaults
 ENCODER_MODE=$DEFAULT_ENCODER_MODE
@@ -74,6 +75,7 @@ print_usage() {
     echo -e "${YELLOW}Background Options:${NC}"
     echo "  --background        Run in background (detached). Creates a PID file for monitoring."
     echo "  --status            Display current conversion status and progress."
+    echo "  --stop              Stop a running background conversion process."
     echo ""
     echo -e "${YELLOW}Other:${NC}"
     echo "  -h, --help          Show this help message."
@@ -165,6 +167,10 @@ while [[ $# -gt 0 ]]; do
             STATUS_ONLY=true
             shift
             ;;
+        --stop)
+            STOP_PROCESS=true
+            shift
+            ;;
         -h|--help)
             print_usage
             exit 0
@@ -215,6 +221,36 @@ else
     CONFIG_STRING+=" | Quality (CRF): $CPU_CRF | Preset: $CPU_PRESET"
 fi
 
+# --- Handle Stop Request ---
+if [ "$STOP_PROCESS" = true ]; then
+    if [ ! -f "$PID_FILE" ]; then
+        echo -e "${YELLOW}No conversion process is currently running for: $FOLDER_PATH${NC}"
+        exit 0
+    fi
+    
+    PID=$(cat "$PID_FILE")
+    if ! kill -0 "$PID" 2>/dev/null; then
+        echo -e "${YELLOW}Process $PID is not running (stale PID file).${NC}"
+        rm -f "$PID_FILE"
+        exit 0
+    fi
+    
+    echo -e "${YELLOW}Stopping conversion process (PID: $PID)...${NC}"
+    if kill "$PID" 2>/dev/null; then
+        echo -e "${GREEN}Process stopped successfully.${NC}"
+        # Give it a moment to clean up
+        sleep 1
+        # Clean up PID file if process is gone
+        if ! kill -0 "$PID" 2>/dev/null; then
+            rm -f "$PID_FILE" "$STATUS_FILE"
+        fi
+    else
+        echo -e "${RED}Failed to stop process $PID${NC}"
+        exit 1
+    fi
+    exit 0
+fi
+
 # --- Handle Status Request ---
 if [ "$STATUS_ONLY" = true ]; then
     if [ ! -f "$PID_FILE" ]; then
@@ -250,7 +286,7 @@ if [ "$STATUS_ONLY" = true ]; then
     fi
     
     echo ""
-    echo -e "To stop: ${YELLOW}kill $PID${NC}"
+    echo -e "To stop: ${YELLOW}$0 --stop $FOLDER_PATH${NC}"
     echo -e "Full log: ${YELLOW}tail -f $OUTPUT_LOG${NC}"
     exit 0
 fi
@@ -359,6 +395,13 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( \
         continue
     fi
     
+    # Check if a _src version of this file already exists (means it was already processed)
+    potential_src_file="${dir_name}/${filename_no_ext}_src.${extension}"
+    if [ -f "$potential_src_file" ]; then
+        echo -e "${YELLOW}Skipping $base_name - already processed (found ${filename_no_ext}_src.${extension})${NC}"
+        continue
+    fi
+    
     # Increment processed counter
     PROCESSED=$((PROCESSED + 1))
     
@@ -381,7 +424,7 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( \
     echo -e "  Config: ($CONFIG_STRING)"
 
     # --- Build FFmpeg Command Dynamically ---
-    ffmpeg_command=("ffmpeg" "-y") # Use an array for safe arg handling, -y must be before input
+    ffmpeg_command=("ffmpeg" "-y" "-nostdin") # Use an array for safe arg handling, -y and -nostdin must be before input
 
     if [ "$ENCODER_MODE" = "gpu" ]; then
         ffmpeg_command+=("-hwaccel" "vaapi" "-hwaccel_output_format" "vaapi")
