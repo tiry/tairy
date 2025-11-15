@@ -207,6 +207,14 @@ PID_FILE="$FOLDER_PATH/.vconvert.pid"
 STATUS_FILE="$FOLDER_PATH/.vconvert.status"
 OUTPUT_LOG="$FOLDER_PATH/vconvert_output.log"
 
+# --- Setup Config String ---
+CONFIG_STRING="Mode: $ENCODER_MODE | Codec: $VIDEO_CODEC"
+if [ "$ENCODER_MODE" = "gpu" ]; then
+    CONFIG_STRING+=" | Quality (QP): $GPU_QP"
+else
+    CONFIG_STRING+=" | Quality (CRF): $CPU_CRF | Preset: $CPU_PRESET"
+fi
+
 # --- Handle Status Request ---
 if [ "$STATUS_ONLY" = true ]; then
     if [ ! -f "$PID_FILE" ]; then
@@ -305,12 +313,6 @@ trap "rm -f $PID_FILE $STATUS_FILE" EXIT
 
 # --- Setup Log File & Info ---
 LOG_FILE="$FOLDER_PATH/conversion.log"
-CONFIG_STRING="Mode: $ENCODER_MODE | Codec: $VIDEO_CODEC"
-if [ "$ENCODER_MODE" = "gpu" ]; then
-    CONFIG_STRING+=" | Quality (QP): $GPU_QP"
-else
-    CONFIG_STRING+=" | Quality (CRF): $CPU_CRF | Preset: $CPU_PRESET"
-fi
 
 if [ "$DRY_RUN" = false ]; then
     echo "--- Video Conversion Log ---" > "$LOG_FILE"
