@@ -31,6 +31,7 @@ DEFAULT_VIDEO_CODEC="av1"   # "av1" or "h265"
 DEFAULT_GPU_QP="30"         # GPU Quality (lower is better)
 DEFAULT_CPU_CRF="30"        # CPU Quality (lower is better)
 DEFAULT_CPU_PRESET="8"      # CPU Speed (CPU AV1: 0-13, fast: 8-10. CPU H.265: ultrafast, superfast, fast, medium, slow)
+DEFAULT_KEYFRAME_INTERVAL="240"  # Keyframe interval in frames (240 = ~4-8 seconds at 30-60fps)
 
 # --- Internal Variables ---
 DRY_RUN=false
@@ -45,6 +46,7 @@ VIDEO_CODEC=$DEFAULT_VIDEO_CODEC
 GPU_QP=$DEFAULT_GPU_QP
 CPU_CRF=$DEFAULT_CPU_CRF
 CPU_PRESET=$DEFAULT_CPU_PRESET
+KEYFRAME_INTERVAL=$DEFAULT_KEYFRAME_INTERVAL
 
 # --- Terminal Colors ---
 RED='\033[0;31m'
@@ -71,6 +73,7 @@ print_usage() {
     echo "  --qp <value>        GPU Quantization Parameter (default: $DEFAULT_GPU_QP). Lower is higher quality."
     echo "  --crf <value>       CPU Constant Rate Factor (default: $DEFAULT_CPU_CRF). Lower is higher quality."
     echo "  --preset <value>    CPU speed preset (default: $DEFAULT_CPU_PRESET). Higher is faster for AV1."
+    echo "  --keyframe <value>  Keyframe interval in frames (default: $DEFAULT_KEYFRAME_INTERVAL). Lower = more seekable, larger file."
     echo "  --dry-run           Show what actions would be taken without encoding or moving files."
     echo ""
     echo -e "${YELLOW}Background Options:${NC}"
@@ -154,6 +157,11 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             CPU_PRESET="$2"
+            shift 2
+            ;;
+        --keyframe)
+            parse_numeric_arg "--keyframe" "$2"
+            KEYFRAME_INTERVAL="$2"
             shift 2
             ;;
         --dry-run)
@@ -376,7 +384,13 @@ fi
 
 # --- Main Processing Loop ---
 # Define video file extensions to process (single source of truth)
-VIDEO_EXTENSIONS=(-iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" -o -iname "*.vid")
+VIDEO_EXTENSIONS=(-iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv")
+
+# Create 'done' subdirectory if it doesn't exist
+DONE_DIR="$FOLDER_PATH/done"
+if [ "$DRY_RUN" = false ]; then
+    mkdir -p "$DONE_DIR"
+fi
 
 # Count total files to process
 TOTAL_FILES=$(find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) ! -name "*_src.*" ! -name "*_av1.*" | wc -l)
@@ -423,9 +437,10 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
     } > "$STATUS_FILE"
     
     # Define output file names
-    # We use _av1.mkv as a temp name regardless of codec for simplicity in renaming.
+    # We use _av1.mkv as a temp name during encoding for simplicity.
     temp_output_name="${dir_name}/${filename_no_ext}_av1.mkv"
-    final_output_name="${dir_name}/${filename_no_ext}.mkv"
+    # Final output uses the same extension as the source file
+    final_output_name="${dir_name}/${filename_no_ext}.${extension}"
     final_source_name="${dir_name}/${filename_no_ext}_src.${extension}"
 
     echo -e "\n${CYAN}Processing: $base_name${NC}"
@@ -451,6 +466,12 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
         fi
     fi
     
+    # Add keyframe interval for better seeking (requires full frame every N frames)
+    ffmpeg_command+=("-g" "$KEYFRAME_INTERVAL")
+    
+    # Force 8-bit color for maximum compatibility with players and hardware decoders
+    ffmpeg_command+=("-pix_fmt" "yuv420p")
+    
     # Add audio copy and output flags
     ffmpeg_command+=("-c:a" "copy" "-loglevel" "error" "$temp_output_name")
 
@@ -466,6 +487,9 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
     echo "  Encoding..."
     start_time=$(date +%s)
     original_size_bytes=$(stat -c%s "$source_file")
+    
+    # Log the ffmpeg command
+    echo "[$(date)] COMMAND: ${ffmpeg_command[*]}" >> "$LOG_FILE"
     
     # Try with audio copy first
     if ! "${ffmpeg_command[@]}" 2>/dev/null; then
@@ -483,6 +507,9 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
                 break
             fi
         done
+        
+        # Log the retry command with audio re-encoding
+        echo "[$(date)] RETRY COMMAND (with audio re-encode): ${ffmpeg_command_reencode[*]}" >> "$LOG_FILE"
         
         if ! "${ffmpeg_command_reencode[@]}"; then
             echo -e "${RED}  ERROR: FFmpeg failed to encode $base_name (even with audio re-encoding).${NC}"
@@ -563,6 +590,11 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
     # 2. Rename the new AV1 file to its final name
     echo "  Renaming output to: $final_output_name"
     mv "$temp_output_name" "$final_output_name"
+    
+    # 3. Move both files to done directory
+    echo "  Moving files to done/"
+    mv "$final_source_name" "$DONE_DIR/"
+    mv "$final_output_name" "$DONE_DIR/"
 
 done
 
@@ -583,4 +615,20 @@ if [ "$DRY_RUN" = false ]; then
     
     echo ""
     echo -e "${CYAN}Summary table written to: $SUMMARY_FILE${NC}"
+    
+    # Handle summary file in done directory
+    DONE_SUMMARY="$DONE_DIR/conversion_summary.log"
+    if [ -f "$DONE_SUMMARY" ]; then
+        # Append to existing summary in done/
+        echo "" >> "$DONE_SUMMARY"
+        echo "" >> "$DONE_SUMMARY"
+        echo "========================================" >> "$DONE_SUMMARY"
+        echo "" >> "$DONE_SUMMARY"
+        cat "$SUMMARY_FILE" >> "$DONE_SUMMARY"
+        echo -e "${CYAN}Summary appended to: $DONE_SUMMARY${NC}"
+    else
+        # Copy summary to done/ for the first time
+        cp "$SUMMARY_FILE" "$DONE_SUMMARY"
+        echo -e "${CYAN}Summary copied to: $DONE_SUMMARY${NC}"
+    fi
 fi
