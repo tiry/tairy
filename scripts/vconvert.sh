@@ -384,7 +384,7 @@ fi
 
 # --- Main Processing Loop ---
 # Define video file extensions to process (single source of truth)
-VIDEO_EXTENSIONS=(-iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv")
+VIDEO_EXTENSIONS=(-iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" -o -iname "*.vid")
 
 # Create 'done' subdirectory if it doesn't exist
 DONE_DIR="$FOLDER_PATH/done"
