@@ -7,7 +7,7 @@
 
     amdgpu_top
     
-     rocm-smi -i
+    rocm-smi -i
 
 
 ## llama.ccp
@@ -38,4 +38,9 @@ Restart
 Check Status 
     journalctl -u chat-webui -f
 
+
+## nvidia
+
+sudo pacman -S nvidia nvidia-utils
+sudo pacman -S cuda
 

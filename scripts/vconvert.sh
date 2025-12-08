@@ -30,8 +30,8 @@ DEFAULT_ENCODER_MODE="gpu"  # "gpu" or "cpu"
 DEFAULT_VIDEO_CODEC="av1"   # "av1" or "h265"
 DEFAULT_GPU_QP="30"         # GPU Quality (lower is better)
 DEFAULT_CPU_CRF="30"        # CPU Quality (lower is better)
-DEFAULT_CPU_PRESET="8"      # CPU Speed (CPU AV1: 0-13, fast: 8-10. CPU H.265: ultrafast, superfast, fast, medium, slow)
-DEFAULT_KEYFRAME_INTERVAL="240"  # Keyframe interval in frames (240 = ~4-8 seconds at 30-60fps)
+DEFAULT_CPU_PRESET="6"      # CPU Speed (CPU AV1: 0-13, fast: 8-10. CPU H.265: ultrafast, superfast, fast, medium, slow)
+DEFAULT_KEYFRAME_INTERVAL="120"  # Keyframe interval in frames (120 = ~2-4 seconds at 30-60fps)
 
 # --- Internal Variables ---
 DRY_RUN=false
@@ -64,7 +64,7 @@ print_usage() {
     echo ""
     echo -e "${YELLOW}Shortcut Modes:${NC}"
     echo "  --best            Alias for: --mode cpu --codec h265 --crf 28 --preset slow"
-    echo "  --medium          Alias for: --mode cpu --codec av1 --crf 28 --preset 8"
+    echo "  --medium          Alias for: --mode cpu --codec av1 --crf 26 --preset 6"
     echo "  --fast            Alias for: --mode gpu --codec av1 --qp 30"
     echo ""
     echo -e "${YELLOW}Manual Options:${NC}"
@@ -113,8 +113,8 @@ while [[ $# -gt 0 ]]; do
         --medium)
             ENCODER_MODE="cpu"
             VIDEO_CODEC="av1"
-            CPU_CRF="28"
-            CPU_PRESET="8"
+            CPU_CRF="26"
+            CPU_PRESET="6"
             shift
             ;;
         --fast)
