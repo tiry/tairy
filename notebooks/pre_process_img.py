@@ -1,11 +1,18 @@
 import os
+import argparse
 from PIL import Image, ImageOps
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Process images: resize, crop, and rename.')
+parser.add_argument('--size', type=int, default=512, 
+                    help='Target size for output images (square). Default: 512')
+args = parser.parse_args()
 
 # --- Configuration ---
 INPUT_DIR = "tiry_pics"           
 OUTPUT_DIR = "tiry_pics_processed" 
-TARGET_SIZE = (512, 512)
-FILE_PREFIX = "tiry"                
+TARGET_SIZE = (args.size, args.size)
+FILE_PREFIX = "tiry"
 
 # Create output directory if it doesn't exist
 if not os.path.exists(OUTPUT_DIR):
