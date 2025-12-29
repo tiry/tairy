@@ -6,19 +6,37 @@ Benchmark done using llama.cpp
 
     ./run-llamacpp.sh -m ~/models/Llama-3-8B-Instruct.Q5_K_M.gguf --benchmark -b rocm
 
-Hardware:
+**Hardware:**
 
  - Framework Desktop AMD AI 395+
  - eGPU Razer CoreX + NVidia 4070Ti
+
+**System**
+
+    Arch Linux                           
+    Kernel: Linux 6.18.2-arch2-1
+
+**Nvidia:**
+
+    NVIDIA-SMI 590.48.01              
+    Driver Version: 590.48.01      
+    CUDA Version: 13.1 
+
+**AMD:**
+
+    AMD-SMI 26.2.0+unknown       
+    ROCm version: 7.1.1
 
 <img src="benchmark_comparison.png"></ing>
 
 ## AMD AI 395+ / Strix Halo
 
 **Rocm:**
+
     Device 0: Radeon 8060S Graphics, gfx1151 (0x1151), VMM: no, Wave Size: 32
 
 **Vulkan:**
+
     ggml_vulkan: 0 = Radeon 8060S Graphics (RADV GFX1151) (radv) | uma: 1 | fp16: 1 | bf16: 0 | warp size: 64 | shared memory: 65536 | int dot: 1 | matrix cores: KHR_coopmat
 
 
@@ -49,6 +67,7 @@ Hardware:
 ## NVidia 4070Ti
 
 **CUDA:**
+
     Device 0: NVIDIA GeForce RTX 4070 Ti, compute capability 8.9, VMM: yes
 
 **Vulkan:**
