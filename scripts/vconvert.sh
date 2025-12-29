@@ -469,6 +469,9 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
     # Add keyframe interval for better seeking (requires full frame every N frames)
     ffmpeg_command+=("-g" "$KEYFRAME_INTERVAL")
     
+    # Add audio sync flag to fix silence after seeking
+    ffmpeg_command+=("-async" "1")
+
     # Force 8-bit color for maximum compatibility with players and hardware decoders
     ffmpeg_command+=("-pix_fmt" "yuv420p")
     
