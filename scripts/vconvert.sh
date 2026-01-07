@@ -40,6 +40,7 @@ STATUS_ONLY=false
 STOP_PROCESS=false
 REENCODE_AUDIO=false
 FOLDER_PATH=""
+OUTPUT_DIR=""
 # Set runtime values from defaults
 ENCODER_MODE=$DEFAULT_ENCODER_MODE
 VIDEO_CODEC=$DEFAULT_VIDEO_CODEC
@@ -74,6 +75,7 @@ print_usage() {
     echo "  --crf <value>       CPU Constant Rate Factor (default: $DEFAULT_CPU_CRF). Lower is higher quality."
     echo "  --preset <value>    CPU speed preset (default: $DEFAULT_CPU_PRESET). Higher is faster for AV1."
     echo "  --keyframe <value>  Keyframe interval in frames (default: $DEFAULT_KEYFRAME_INTERVAL). Lower = more seekable, larger file."
+    echo "  --output <dir>      Target output directory. When specified, source files remain untouched."
     echo "  --dry-run           Show what actions would be taken without encoding or moving files."
     echo ""
     echo -e "${YELLOW}Background Options:${NC}"
@@ -164,6 +166,14 @@ while [[ $# -gt 0 ]]; do
             KEYFRAME_INTERVAL="$2"
             shift 2
             ;;
+        --output)
+            if [[ -z "$2" || "$2" == -* ]]; then
+                echo -e "${RED}Error: --output option requires a directory path.${NC}" >&2
+                exit 1
+            fi
+            OUTPUT_DIR="$2"
+            shift 2
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
@@ -212,15 +222,41 @@ if [[ ! -d "$FOLDER_PATH" ]]; then
     exit 1
 fi
 FOLDER_PATH=$(realpath "$FOLDER_PATH")
+
+# Validate and prepare output directory if specified
+if [[ -n "$OUTPUT_DIR" ]]; then
+    # Create output directory if it doesn't exist
+    if [[ ! -d "$OUTPUT_DIR" ]]; then
+        if [ "$DRY_RUN" = false ]; then
+            mkdir -p "$OUTPUT_DIR" || {
+                echo -e "${RED}Error: Failed to create output directory: $OUTPUT_DIR${NC}" >&2
+                exit 1
+            }
+            echo -e "${GREEN}Created output directory: $OUTPUT_DIR${NC}"
+        else
+            echo -e "${YELLOW}[DRY RUN] Would create output directory: $OUTPUT_DIR${NC}"
+        fi
+    fi
+    OUTPUT_DIR=$(realpath "$OUTPUT_DIR")
+    
+    # Ensure output directory is not the same as source
+    if [[ "$OUTPUT_DIR" == "$FOLDER_PATH" ]]; then
+        echo -e "${RED}Error: Output directory cannot be the same as source folder.${NC}" >&2
+        exit 1
+    fi
+fi
+
 if ! command -v ffmpeg &> /dev/null; then
     echo -e "${RED}Error: ffmpeg is not installed or not in your PATH.${NC}" >&2
     exit 1
 fi
 
 # --- Define Status and Control Files ---
-PID_FILE="$FOLDER_PATH/.vconvert.pid"
-STATUS_FILE="$FOLDER_PATH/.vconvert.status"
-OUTPUT_LOG="$FOLDER_PATH/vconvert_output.log"
+# Use output directory for control files if specified, otherwise use source folder
+CONTROL_DIR="${OUTPUT_DIR:-$FOLDER_PATH}"
+PID_FILE="$CONTROL_DIR/.vconvert.pid"
+STATUS_FILE="$CONTROL_DIR/.vconvert.status"
+OUTPUT_LOG="$CONTROL_DIR/vconvert_output.log"
 
 # --- Setup Config String ---
 CONFIG_STRING="Mode: $ENCODER_MODE | Codec: $VIDEO_CODEC"
@@ -339,6 +375,9 @@ if [ "$BACKGROUND" = true ]; then
             ARGS+=("--preset" "$CPU_PRESET")
         fi
     fi
+    if [[ -n "$OUTPUT_DIR" ]]; then
+        ARGS+=("--output" "$OUTPUT_DIR")
+    fi
     ARGS+=("$FOLDER_PATH")
     
     nohup "$0" "${ARGS[@]}" > "$OUTPUT_LOG" 2>&1 &
@@ -357,18 +396,26 @@ echo $$ > "$PID_FILE"
 trap "rm -f $PID_FILE $STATUS_FILE" EXIT
 
 # --- Setup Log File & Info ---
-LOG_FILE="$FOLDER_PATH/conversion.log"
+LOG_FILE="$CONTROL_DIR/conversion.log"
 
 if [ "$DRY_RUN" = false ]; then
     echo "--- Video Conversion Log ---" > "$LOG_FILE"
     echo "Run started: $(date)" >> "$LOG_FILE"
+    echo "Source folder: $FOLDER_PATH" >> "$LOG_FILE"
+    if [[ -n "$OUTPUT_DIR" ]]; then
+        echo "Output directory: $OUTPUT_DIR" >> "$LOG_FILE"
+    fi
     echo "Using config: $CONFIG_STRING" >> "$LOG_FILE"
     echo "--------------------------" >> "$LOG_FILE"
     
     # Create summary file header
-    SUMMARY_FILE="$FOLDER_PATH/conversion_summary.log"
+    SUMMARY_FILE="$CONTROL_DIR/conversion_summary.log"
     echo "=== Video Conversion Summary ===" > "$SUMMARY_FILE"
     echo "Run started: $(date)" >> "$SUMMARY_FILE"
+    echo "Source folder: $FOLDER_PATH" >> "$SUMMARY_FILE"
+    if [[ -n "$OUTPUT_DIR" ]]; then
+        echo "Output directory: $OUTPUT_DIR" >> "$SUMMARY_FILE"
+    fi
     echo "Config: $CONFIG_STRING" >> "$SUMMARY_FILE"
     echo "" >> "$SUMMARY_FILE"
     printf "%-50s | %-10s | %10s | %15s -> %-15s | %8s\n" "File" "Status" "Duration" "Size Before" "Size After" "Delta %" >> "$SUMMARY_FILE"
@@ -377,7 +424,10 @@ if [ "$DRY_RUN" = false ]; then
 else
     echo -e "${YELLOW}--- DRY RUN MODE ENABLED ---${NC}"
     echo "No files will be changed. Log will not be written."
-    echo "Target Folder: $FOLDER_PATH"
+    echo "Source Folder: $FOLDER_PATH"
+    if [[ -n "$OUTPUT_DIR" ]]; then
+        echo "Output Directory: $OUTPUT_DIR"
+    fi
     echo "Using config: $CONFIG_STRING"
     echo "-------------------------------------"
 fi
@@ -386,10 +436,21 @@ fi
 # Define video file extensions to process (single source of truth)
 VIDEO_EXTENSIONS=(-iname "*.mp4" -o -iname "*.mkv" -o -iname "*.webm" -o -iname "*.avi" -o -iname "*.mov" -o -iname "*.flv" -o -iname "*.vid")
 
-# Create 'done' subdirectory if it doesn't exist
-DONE_DIR="$FOLDER_PATH/done"
-if [ "$DRY_RUN" = false ]; then
-    mkdir -p "$DONE_DIR"
+# Determine output strategy based on whether OUTPUT_DIR is specified
+if [[ -n "$OUTPUT_DIR" ]]; then
+    # When output directory is specified, write files there directly
+    DONE_DIR="$OUTPUT_DIR"
+    USE_OUTPUT_MODE=true
+    if [ "$DRY_RUN" = false ]; then
+        mkdir -p "$DONE_DIR"
+    fi
+else
+    # Original behavior: create 'done' subdirectory in source folder
+    DONE_DIR="$FOLDER_PATH/done"
+    USE_OUTPUT_MODE=false
+    if [ "$DRY_RUN" = false ]; then
+        mkdir -p "$DONE_DIR"
+    fi
 fi
 
 # Count total files to process
@@ -436,14 +497,22 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
         echo "Last updated: $(date)"
     } > "$STATUS_FILE"
     
-    # Define output file names
-    # We use _av1.mkv as a temp name during encoding for simplicity.
-    temp_output_name="${dir_name}/${filename_no_ext}_av1.mkv"
-    # Final output uses the same extension as the source file
-    final_output_name="${dir_name}/${filename_no_ext}.${extension}"
-    final_source_name="${dir_name}/${filename_no_ext}_src.${extension}"
+    # Define output file names based on mode
+    if [ "$USE_OUTPUT_MODE" = true ]; then
+        # Output mode: write directly to output directory with original name
+        final_output_name="${DONE_DIR}/${filename_no_ext}.${extension}"
+        temp_output_name="${DONE_DIR}/${filename_no_ext}_temp.mkv"
+    else
+        # Original mode: use temp names in source directory
+        temp_output_name="${dir_name}/${filename_no_ext}_av1.mkv"
+        final_output_name="${dir_name}/${filename_no_ext}.${extension}"
+        final_source_name="${dir_name}/${filename_no_ext}_src.${extension}"
+    fi
 
     echo -e "\n${CYAN}Processing: $base_name${NC}"
+    if [ "$USE_OUTPUT_MODE" = true ]; then
+        echo -e "  Output: $final_output_name"
+    fi
     echo -e "  Config: ($CONFIG_STRING)"
 
     # --- Build FFmpeg Command Dynamically ---
@@ -481,8 +550,13 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
     # --- Dry Run Logic ---
     if [ "$DRY_RUN" = true ]; then
         echo "  [DRY RUN] Would run: ${ffmpeg_command[*]}"
-        echo "  [DRY RUN] Would rename source to: $final_source_name"
-        echo "  [DRY RUN] Would rename output to: $final_output_name"
+        if [ "$USE_OUTPUT_MODE" = true ]; then
+            echo "  [DRY RUN] Would write output to: $final_output_name"
+            echo "  [DRY RUN] Source file would remain unchanged: $source_file"
+        else
+            echo "  [DRY RUN] Would rename source to: $final_source_name"
+            echo "  [DRY RUN] Would rename output to: $final_output_name"
+        fi
         continue
     fi
 
@@ -586,18 +660,28 @@ find "$FOLDER_PATH" -maxdepth 1 -type f \( "${VIDEO_EXTENSIONS[@]}" \) -print0 |
     SUCCEEDED=$((SUCCEEDED + 1))
 
     # --- The File "Dance" ---
-    # 1. Rename the original source file
-    echo "  Renaming source to: $final_source_name"
-    mv "$source_file" "$final_source_name"
+    if [ "$USE_OUTPUT_MODE" = true ]; then
+        # Output mode: just rename temp file to final name, leave source untouched
+        if [[ "$temp_output_name" != "$final_output_name" ]]; then
+            echo "  Finalizing output file: $final_output_name"
+            mv "$temp_output_name" "$final_output_name"
+        fi
+        echo -e "${GREEN}  Source file unchanged: $source_file${NC}"
+    else
+        # Original mode: rename source, rename output, move both to done/
+        # 1. Rename the original source file
+        echo "  Renaming source to: $final_source_name"
+        mv "$source_file" "$final_source_name"
 
-    # 2. Rename the new AV1 file to its final name
-    echo "  Renaming output to: $final_output_name"
-    mv "$temp_output_name" "$final_output_name"
-    
-    # 3. Move both files to done directory
-    echo "  Moving files to done/"
-    mv "$final_source_name" "$DONE_DIR/"
-    mv "$final_output_name" "$DONE_DIR/"
+        # 2. Rename the new AV1 file to its final name
+        echo "  Renaming output to: $final_output_name"
+        mv "$temp_output_name" "$final_output_name"
+        
+        # 3. Move both files to done directory
+        echo "  Moving files to done/"
+        mv "$final_source_name" "$DONE_DIR/"
+        mv "$final_output_name" "$DONE_DIR/"
+    fi
 
 done
 
@@ -619,19 +703,21 @@ if [ "$DRY_RUN" = false ]; then
     echo ""
     echo -e "${CYAN}Summary table written to: $SUMMARY_FILE${NC}"
     
-    # Handle summary file in done directory
-    DONE_SUMMARY="$DONE_DIR/conversion_summary.log"
-    if [ -f "$DONE_SUMMARY" ]; then
-        # Append to existing summary in done/
-        echo "" >> "$DONE_SUMMARY"
-        echo "" >> "$DONE_SUMMARY"
-        echo "========================================" >> "$DONE_SUMMARY"
-        echo "" >> "$DONE_SUMMARY"
-        cat "$SUMMARY_FILE" >> "$DONE_SUMMARY"
-        echo -e "${CYAN}Summary appended to: $DONE_SUMMARY${NC}"
-    else
-        # Copy summary to done/ for the first time
-        cp "$SUMMARY_FILE" "$DONE_SUMMARY"
-        echo -e "${CYAN}Summary copied to: $DONE_SUMMARY${NC}"
+    # Handle summary file in done/output directory (only if not using output mode)
+    if [ "$USE_OUTPUT_MODE" = false ]; then
+        DONE_SUMMARY="$DONE_DIR/conversion_summary.log"
+        if [ -f "$DONE_SUMMARY" ]; then
+            # Append to existing summary in done/
+            echo "" >> "$DONE_SUMMARY"
+            echo "" >> "$DONE_SUMMARY"
+            echo "========================================" >> "$DONE_SUMMARY"
+            echo "" >> "$DONE_SUMMARY"
+            cat "$SUMMARY_FILE" >> "$DONE_SUMMARY"
+            echo -e "${CYAN}Summary appended to: $DONE_SUMMARY${NC}"
+        else
+            # Copy summary to done/ for the first time
+            cp "$SUMMARY_FILE" "$DONE_SUMMARY"
+            echo -e "${CYAN}Summary copied to: $DONE_SUMMARY${NC}"
+        fi
     fi
 fi

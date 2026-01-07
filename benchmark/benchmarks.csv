@@ -1,35 +1,60 @@
-model,size_GiB,params_B,backend,test,speed_t_s
-llama 8B Q5_K - Medium,5.33,8.03,rocm,pp512,1084.19
-llama 8B Q5_K - Medium,5.33,8.03,rocm,tg128,35.11
-llama 8B Q5_K - Medium,5.33,8.03,amd/vulkan,pp512,619.09
-llama 8B Q5_K - Medium,5.33,8.03,amd/vulkan,tg128,38.80
-llama 8B Q5_K - Medium,5.33,8.03,cuda,pp512,5350.57
-llama 8B Q5_K - Medium,5.33,8.03,cuda,tg128,79.34
-llama 8B Q5_K - Medium,5.33,8.03,nvidia/vulkan,pp512,4134.34
-llama 8B Q5_K - Medium,5.33,8.03,nvidia/vulkan,tg128,78.82
-gemma3n E4B Q8_0,9.86,6.87,rocm,pp512,1310.28
-gemma3n E4B Q8_0,9.86,6.87,rocm,tg128,25.66
-gemma3n E4B Q8_0,9.86,6.87,cuda,pp512,5333.26
-gemma3n E4B Q8_0,9.86,6.87,cuda,tg128,64.32
-gemma3n E4B Q8_0,9.86,6.87,nvidia/vulkan,pp512,4688.36
-gemma3n E4B Q8_0,9.86,6.87,nvidia/vulkan,tg128,60.26
-mistral3 14B Q5_K - Medium,8.95,13.51,rocm,pp512,694.17
-mistral3 14B Q5_K - Medium,8.95,13.51,rocm,tg128,20.91
-mistral3 14B Q5_K - Medium,8.95,13.51,amd/vulkan,pp512,335.40
-mistral3 14B Q5_K - Medium,8.95,13.51,amd/vulkan,tg128,22.70
-mistral3 14B Q5_K - Medium,8.95,13.51,cuda,pp512,3298.67
-mistral3 14B Q5_K - Medium,8.95,13.51,cuda,tg128,47.24
-mistral3 14B Q5_K - Medium,8.95,13.51,nvidia/vulkan,pp512,2491.44
-mistral3 14B Q5_K - Medium,8.95,13.51,nvidia/vulkan,tg128,45.96
-mistral3 14B Q6_K,10.32,13.51,rocm,pp512,514.28
-mistral3 14B Q6_K,10.32,13.51,rocm,tg128,18.91
-mistral3 14B Q6_K,10.32,13.51,amd/vulkan,pp512,286.73
-mistral3 14B Q6_K,10.32,13.51,amd/vulkan,tg128,19.73
-mistral3 14B Q6_K,10.32,13.51,cuda,pp512,3037.02
-mistral3 14B Q6_K,10.32,13.51,cuda,tg128,41.40
-mistral3 14B Q6_K,10.32,13.51,nvidia/vulkan,pp512,2581.60
-mistral3 14B Q6_K,10.32,13.51,nvidia/vulkan,tg128,40.23
-mistral3 14B Q8_0,13.37,13.51,rocm,pp512,708.34
-mistral3 14B Q8_0,13.37,13.51,rocm,tg128,15.19
-mistral3 14B Q8_0,13.37,13.51,amd/vulkan,pp512,281.26
-mistral3 14B Q8_0,13.37,13.51,amd/vulkan,tg128,15.64
+model,size_GiB,params_B,inference,backend,GPU,test,speed_t_s
+llama 8B Q5_K - Medium,5.33,8.03,llama.cpp,cuda,RTX 4070 Ti,pp512,5350.57
+llama 8B Q5_K - Medium,5.33,8.03,llama.cpp,cuda,RTX 4070 Ti,tg128,79.34
+gemma3n E4B Q8_0,9.86,6.87,llama.cpp,cuda,RTX 4070 Ti,pp512,5333.26
+gemma3n E4B Q8_0,9.86,6.87,llama.cpp,cuda,RTX 4070 Ti,tg128,64.32
+mistral3 14B Q5_K - Medium,8.95,13.51,llama.cpp,cuda,RTX 4070 Ti,pp512,3298.67
+mistral3 14B Q5_K - Medium,8.95,13.51,llama.cpp,cuda,RTX 4070 Ti,tg128,47.24
+mistral3 14B Q6_K,10.32,13.51,llama.cpp,cuda,RTX 4070 Ti,pp512,3037.02
+mistral3 14B Q6_K,10.32,13.51,llama.cpp,cuda,RTX 4070 Ti,tg128,41.40
+llama 8B Q5_K - Medium,5.33,8.03,llama.cpp,rocm,Radeon 8060S,pp512,1084.19
+llama 8B Q5_K - Medium,5.33,8.03,llama.cpp,rocm,Radeon 8060S,tg128,35.11
+gemma3n E4B Q8_0,9.86,6.87,llama.cpp,rocm,Radeon 8060S,pp512,1310.28
+gemma3n E4B Q8_0,9.86,6.87,llama.cpp,rocm,Radeon 8060S,tg128,25.66
+mistral3 14B Q5_K - Medium,8.95,13.51,llama.cpp,rocm,Radeon 8060S,pp512,694.17
+mistral3 14B Q5_K - Medium,8.95,13.51,llama.cpp,rocm,Radeon 8060S,tg128,20.91
+mistral3 14B Q6_K,10.32,13.51,llama.cpp,rocm,Radeon 8060S,pp512,514.28
+mistral3 14B Q6_K,10.32,13.51,llama.cpp,rocm,Radeon 8060S,tg128,18.91
+mistral3 14B Q8_0,13.37,13.51,llama.cpp,rocm,Radeon 8060S,pp512,708.34
+mistral3 14B Q8_0,13.37,13.51,llama.cpp,rocm,Radeon 8060S,tg128,15.19
+llama 8B Q5_K - Medium,5.33,8.03,llama.cpp,vulkan,Radeon 8060S,pp512,619.09
+llama 8B Q5_K - Medium,5.33,8.03,llama.cpp,vulkan,Radeon 8060S,tg128,38.80
+llama 8B Q5_K - Medium,5.33,8.03,llama.cpp,vulkan,RTX 4070 Ti,pp512,4134.34
+llama 8B Q5_K - Medium,5.33,8.03,llama.cpp,vulkan,RTX 4070 Ti,tg128,78.82
+gemma3n E4B Q8_0,9.86,6.87,llama.cpp,vulkan,RTX 4070 Ti,pp512,4688.36
+gemma3n E4B Q8_0,9.86,6.87,llama.cpp,vulkan,RTX 4070 Ti,tg128,60.26
+mistral3 14B Q5_K - Medium,8.95,13.51,llama.cpp,vulkan,Radeon 8060S,pp512,335.40
+mistral3 14B Q5_K - Medium,8.95,13.51,llama.cpp,vulkan,Radeon 8060S,tg128,22.70
+mistral3 14B Q5_K - Medium,8.95,13.51,llama.cpp,vulkan,RTX 4070 Ti,pp512,2491.44
+mistral3 14B Q5_K - Medium,8.95,13.51,llama.cpp,vulkan,RTX 4070 Ti,tg128,45.96
+mistral3 14B Q6_K,10.32,13.51,llama.cpp,vulkan,Radeon 8060S,pp512,286.73
+mistral3 14B Q6_K,10.32,13.51,llama.cpp,vulkan,Radeon 8060S,tg128,19.73
+mistral3 14B Q6_K,10.32,13.51,llama.cpp,vulkan,RTX 4070 Ti,pp512,2581.60
+mistral3 14B Q6_K,10.32,13.51,llama.cpp,vulkan,RTX 4070 Ti,tg128,40.23
+mistral3 14B Q8_0,13.37,13.51,llama.cpp,vulkan,Radeon 8060S,pp512,281.26
+mistral3 3B F16 ,6.39,3.43,llama.cpp,rocm,Radeon 8060S,tg128,28.92
+mistral3 3B F16 ,6.39,3.43,llama.cpp,rocm,Radeon 8060S,pp512, 1975.80
+mistral3 3B F16 ,6.39,3.43,llama.cpp,vulkan,Radeon 8060S,tg128,27.86
+mistral3 3B F16 ,6.39,3.43,llama.cpp,vulkan,Radeon 8060S,pp512,1017.88
+mistral3 3B F16 ,6.39,3.43,llama.cpp,cuda,RTX 4070 Ti,tg128,64.36
+mistral3 3B F16 ,6.39,3.43,llama.cpp,cuda,RTX 4070 Ti,pp512,9510.99
+mistral3 3B F16 ,6.39,3.43,llama.cpp,vulkan,RTX 4070 Ti,tg128,62.31
+mistral3 3B F16 ,6.39,3.43,llama.cpp,vulkan,RTX 4070 Ti,pp512,9201.73
+mistral3 8B Q8_0,8.40,8.49,llama.cpp,rocm,Radeon 8060S,tg128,24.08
+mistral3 8B Q8_0,8.40,8.49,llama.cpp,rocm,Radeon 8060S,pp512,1100.50
+mistral3 8B Q8_0,8.4,8.49,llama.cpp,vulkan,Radeon 8060S,tg128,25.18
+mistral3 8B Q8_0,8.4,8.49,llama.cpp,vulkan,Radeon 8060S,pp512,493.17
+mistral3 8B Q8_0,8.4,8.49,llama.cpp,cuda,RTX 4070 Ti,tg128,51.70
+mistral3 8B Q8_0,8.4,8.49,llama.cpp,cuda,RTX 4070 Ti,pp512,5223.47
+mistral3 8B Q8_0,8.4,8.49,llama.cpp,vulkan,RTX 4070 Ti,tg128,51.05
+mistral3 8B Q8_0,8.4,8.49,llama.cpp,vulkan,RTX 4070 Ti,pp512,4037.69
+mistral3 14B Q4_K - Medium,7.67,13.51,llama.cpp,rocm,Radeon 8060S,tg128,23.57
+mistral3 14B Q4_K - Medium,7.67,13.51,llama.cpp,rocm,Radeon 8060S,pp512,682.74
+mistral3 14B Q4_K - Medium,7.67,13.51,llama.cpp,vulkan,Radeon 8060S,tg128,26.01
+mistral3 14B Q4_K - Medium,7.67,13.51,llama.cpp,vulkan,Radeon 8060S,pp512,304.90
+mistral3 14B Q4_K - Medium,7.67,13.51,llama.cpp,cuda,RTX 4070 Ti,tg128,54.12
+mistral3 14B Q4_K - Medium,7.67,13.51,llama.cpp,cuda,RTX 4070 Ti,pp512,3384.11
+mistral3 14B Q4_K - Medium,7.67,13.51,llama.cpp,vulkan,RTX 4070 Ti,tg128,52.59
+mistral3 14B Q4_K - Medium,7.67,13.51,llama.cpp,vulkan,RTX 4070 Ti,pp512,2764.02
+mistral3 3B F16 ,4.35,3.43,pytoch,cuda,RTX 4070 Ti,tg128,39.84
+mistral3 8B Q8_0,8.92,9.71,pytoch,cuda,RTX 4070 Ti,tg128,25.03
