@@ -168,13 +168,60 @@ P99 ITL (ms):                            66.18
 ==================================================
 
 
+vllm serve --model mistralai/Ministral-3-3B-Instruct-2512 \
+  --tokenizer_mode mistral \
+  --config_format mistral \
+  --load_format mistral
 
-python benchmarks/benchmark_throughput.py \
-  --model google/gemma-3-4b-it \
-  --dtype half \
-  --num-prompts 200 \
-  --input-len 512 \
-  --output-len 256
+No meaningful error
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
+
+
+vllm serve mistralai/Mistral-Nemo-Instruct-2407 \
+    --tokenizer_mode mistral \
+    --config_format mistral \
+    --load_format mistral
+
+    vllm bench serve --save-result --save-detailed \
+      --backend vllm \
+      --model mistralai/Mistral-Nemo-Instruct-2407 \
+      --endpoint /v1/completions \
+      --dataset-name custom \
+      --dataset-path prompts.jsonl \
+      --num-prompts 3 \
+      --max-concurrency 1 \
+      --temperature=0.3 \
+      --top-p=0.75 \
+      --result-dir "./log/"
+
+
+============ Serving Benchmark Result ============
+Successful requests:                     3         
+Failed requests:                         0         
+Maximum request concurrency:             1         
+Benchmark duration (s):                  133.51    
+Total input tokens:                      24        
+Total generated tokens:                  531       
+Request throughput (req/s):              0.02      
+Output token throughput (tok/s):         3.98      
+Peak output token throughput (tok/s):    4.00      
+Peak concurrent requests:                2.00      
+Total Token throughput (tok/s):          4.16      
+---------------Time to First Token----------------
+Mean TTFT (ms):                          262.70    
+Median TTFT (ms):                        262.36    
+P99 TTFT (ms):                           267.80    
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          251.29    
+Median TPOT (ms):                        251.14    
+P99 TPOT (ms):                           251.62    
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           251.36    
+Median ITL (ms):                         251.08    
+P99 ITL (ms):                            257.26    
+==================================================
+
+
 
 
 curl http://localhost:8000/v1/chat/completions \
@@ -186,6 +233,7 @@ curl http://localhost:8000/v1/chat/completions \
     ],
     "max_tokens": 50
   }'
+
 
 docker run -d \
   --gpus all \
