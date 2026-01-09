@@ -12,6 +12,22 @@ Bsed on documentation, I will assume:
 | `vllm/vllm-omni` | **NVIDIA GPU** (CUDA) | Y | Y | Audio & Video |
 | `vllm/vllm-omni-rocm` | **AMD GPU** (ROCm) | Y | Y | Audio & Video |
 
+### Model used for tests
+
+  - `google/gemma-3-4b-it`
+  - `mistralai/Ministral-3-3B-Base-2512` (base model is in BF16)
+  - `meta-llama/Llama-3.2-3B-Instruct`
+  - `Qwen/Qwen3-4B-Instruct-2507`
+
+
+## Batch Inference
+
+Use `vllm bench serve` to generate a token generation throughput benchmark for different level of concurrency.
+
+<img src="benchmark/vllm-bench/plots/throughput_vs_concurrency_rocm.png"/>
+
+
+
 ## Setup 
 
 ### NVida Setup
@@ -41,7 +57,7 @@ Run test container
 
 From within container:
 
-    root@90fdf6d8647c:/# amd-smi
+> root@90fdf6d8647c:/# amd-smi
 
     +------------------------------------------------------------------------------+
     | AMD-SMI 26.2.0+021c61fc      amdgpu version: Linuxver ROCm version: 7.1.1    |
@@ -62,8 +78,7 @@ From within container:
     +------------------------------------------------------------------------------+
 
 
-    root@90fdf6d8647c:/# rocm-smi
-
+> root@90fdf6d8647c:/# rocm-smi
 
     WARNING: AMD GPU device(s) is/are in a low-power state. Check power control/runtime_status
 
@@ -112,18 +127,4 @@ Meaning a lot of models will not load on the NVidia card with 12GB:
   - mistralai/Mistral-Small-Instruct-2409 is too big 22B
   - mistralai/Mistral-Nemo-Instruct-2407 is too big 12B
   - meta-llama/Llama-3.2-8B-Instruct
-
-### Model used for tests
-
-  - `google/gemma-3-4b-it`
-  - `mistralai/Ministral-3-3B-Base-2512` (base model is in BF16)
-  - `meta-llama/Llama-3.2-3B-Instruct`
-  - `Qwen/Qwen3-4B-Instruct-2507`
-
-## Batch Inference
-
-Use `vllm bench serve` to generate a token generation throughput benchmark for different level of concurrency.
-
-<img src="benchmark/vllm-bench/plots/throughput_vs_concurrency_rocm.png"/>
-
 
