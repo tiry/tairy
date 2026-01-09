@@ -37,6 +37,19 @@
 # mistralai/Ministral-3-3B-Base-2512 100 256
 # meta-llama/Llama-3.2-3B-Instruct 100 256
 
-google/gemma-3-4b-it 120 256
-mistralai/Ministral-3-3B-Base-2512 120 256
-meta-llama/Llama-3.2-3B-Instruct 120 256
+#google/gemma-3-4b-it 120 256
+#mistralai/Ministral-3-3B-Base-2512 120 256
+#meta-llama/Llama-3.2-3B-Instruct 120 256
+
+
+Qwen/Qwen3-4B-Instruct-2507 1 32
+Qwen/Qwen3-4B-Instruct-2507 4 32
+Qwen/Qwen3-4B-Instruct-2507 8 64
+Qwen/Qwen3-4B-Instruct-2507 16 64
+Qwen/Qwen3-4B-Instruct-2507 32 128
+Qwen/Qwen3-4B-Instruct-2507 48 128
+Qwen/Qwen3-4B-Instruct-2507 64 256
+Qwen/Qwen3-4B-Instruct-2507 72 256
+Qwen/Qwen3-4B-Instruct-2507 80 256
+Qwen/Qwen3-4B-Instruct-2507 100 256
+Qwen/Qwen3-4B-Instruct-2507 120 256
