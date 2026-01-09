@@ -1,4 +1,7 @@
 
+## vllm engine
+
+Using Docker image of vllm so that I can easily switch between Cuda and ROCm : seems simpler with Docker.
 
 Bsed on documentation, I will assume:
 
@@ -9,10 +12,9 @@ Bsed on documentation, I will assume:
 | `vllm/vllm-omni` | **NVIDIA GPU** (CUDA) | Y | Y | Audio & Video |
 | `vllm/vllm-omni-rocm` | **AMD GPU** (ROCm) | Y | Y | Audio & Video |
 
+## Setup 
 
-
-
-## NVida Setup
+### NVida Setup
 
 Fror Nvidia need to install kernels extensions
 
@@ -29,7 +31,7 @@ Test access
 
     docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi
 
-## Rocm Setup
+### Rocm Setup
 
 No system level extensions (but does not work)
 
@@ -74,206 +76,54 @@ From within container:
     ==================================================================================================================
     ============================================== End of ROCm SMI Log ===============================================
 
+## Model Selection
 
-## Run Inference
+### Issues with Quantization
 
-### Rocm 
+Support for pre-quantized models in vllm seems limited :
 
+ - does not work on ROCm?
+ - works on Cuda but only on some GPUs (Hooper) (to be checked)
 
-    docker run -it \
-      --device /dev/kfd \
-      --device /dev/dri \
-      --group-add video \
-      --ipc=host \
-      -p 8000:8000 \
-      -e HSA_OVERRIDE_GFX_VERSION=11.0.0 \
-      -e VLLM_USE_V1=0 \
-      --cap-add=SYS_PTRACE \
-      --security-opt seccomp=unconfined \
-      -v ~/.cache/huggingface:/root/.cache/huggingface \
-      vllm/vllm-omni-rocm:v0.12.0rc1 \
-      vllm serve --model Qwen/Qwen2.5-7B-Instruct-1M
+As a result, trying to load quantized models at least on ROCm fails.
+The error message does not provide useful information.
 
-Debug
+     RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
 
-    docker run -it \
-      --device /dev/kfd \
-      --device /dev/dri \
-      --group-add video \
-      --ipc=host \
-      -p 8000:8000 \
-      -e HSA_OVERRIDE_GFX_VERSION=11.0.0 \
-      -e VLLM_USE_V1=0 \
-      --cap-add=SYS_PTRACE \
-      --security-opt seccomp=unconfined \
-      -v ~/.cache/huggingface:/root/.cache/huggingface \
-      vllm/vllm-omni-rocm:v0.12.0rc1 \
-      bash
+NB: There no root cause above
 
+Typically, models that exist only as FP8 can not being able to loaded at least on ROCm 
+    - mistralai/Ministral-3-3B-Instruct-2512
+    - mistralai/Ministral-3-8B-Instruct-2512
 
-    vllm serve --model Qwen/Qwen2.5-7B-Instruct-1M
+### Other loading issues
 
+Some other models (like microsoft/Phi-3.5-mini-instruct) can not be loaded even if they are in BF16
+(may be driver / ROCm issue)
 
-    TypeError: TritonAttentionImpl.__init__() got an unexpected keyword argument 'layer_idx'
+    Memory access fault by GPU node-1 (Agent handle: 0x26326510) on address 0x7f51acdff000. Reason: Page not present or supervisor privilege.
 
+### Models that are too big without Quantization
 
-    
+With 12GB of VRAM on the nVidia, without quantization, in BF16, I can not load a model with more that ~5B parameters.
 
-    vllm bench throughput --model google/gemma-3-4b-it
+Meaning a lot of models will not load on the NVidia card with 12GB:
 
+  - mistralai/Mistral-Small-Instruct-2409 is too big 22B
+  - mistralai/Mistral-Nemo-Instruct-2407 is too big 12B
+  - meta-llama/Llama-3.2-8B-Instruct
 
-Start VLLM Server
+### Model used for tests
 
-    vllm serve --model google/gemma-3-4b-it
+  - `google/gemma-3-4b-it`
+  - `mistralai/Ministral-3-3B-Base-2512` (base model is in BF16)
+  - `meta-llama/Llama-3.2-3B-Instruct`
+  - `Qwen/Qwen3-4B-Instruct-2507`
 
-Run benchmark
+## Batch Inference
 
-    vllm bench serve --save-result --save-detailed \
-      --backend vllm \
-      --model google/gemma-3-4b-it \
-      --endpoint /v1/completions \
-      --dataset-name custom \
-      --dataset-path prompts.jsonl \
-      --num-prompts 3 \
-      --max-concurrency 1 \
-      --temperature=0.3 \
-      --top-p=0.75 \
-      --result-dir "./log/"
+Use `vllm bench serve` to generate a token generation throughput benchmark for different level of concurrency.
+
+<img src="benchmark/vllm-bench/plots/throughput_vs_concurrency_rocm.png"/>
 
 
-============ Serving Benchmark Result ============
-Successful requests:                     3         
-Failed requests:                         0         
-Maximum request concurrency:             1         
-Benchmark duration (s):                  39.01     
-Total input tokens:                      45        
-Total generated tokens:                  604       
-Request throughput (req/s):              0.08      
-Output token throughput (tok/s):         15.48     
-Peak output token throughput (tok/s):    16.00     
-Peak concurrent requests:                2.00      
-Total Token throughput (tok/s):          16.64     
----------------Time to First Token----------------
-Mean TTFT (ms):                          73.12     
-Median TTFT (ms):                        72.91     
-P99 TTFT (ms):                           73.66     
------Time per Output Token (excl. 1st token)------
-Mean TPOT (ms):                          64.47     
-Median TPOT (ms):                        64.57     
-P99 TPOT (ms):                           64.60     
----------------Inter-token Latency----------------
-Mean ITL (ms):                           64.53     
-Median ITL (ms):                         64.45     
-P99 ITL (ms):                            66.18     
-==================================================
-
-
-vllm serve --model mistralai/Ministral-3-3B-Instruct-2512 \
-  --tokenizer_mode mistral \
-  --config_format mistral \
-  --load_format mistral
-
-No meaningful error
-RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}
-
-
-vllm serve mistralai/Mistral-Nemo-Instruct-2407 \
-    --tokenizer_mode mistral \
-    --config_format mistral \
-    --load_format mistral
-
-    vllm bench serve --save-result --save-detailed \
-      --backend vllm \
-      --model mistralai/Mistral-Nemo-Instruct-2407 \
-      --endpoint /v1/completions \
-      --dataset-name custom \
-      --dataset-path prompts.jsonl \
-      --num-prompts 3 \
-      --max-concurrency 1 \
-      --temperature=0.3 \
-      --top-p=0.75 \
-      --result-dir "./log/"
-
-
-============ Serving Benchmark Result ============
-Successful requests:                     3         
-Failed requests:                         0         
-Maximum request concurrency:             1         
-Benchmark duration (s):                  133.51    
-Total input tokens:                      24        
-Total generated tokens:                  531       
-Request throughput (req/s):              0.02      
-Output token throughput (tok/s):         3.98      
-Peak output token throughput (tok/s):    4.00      
-Peak concurrent requests:                2.00      
-Total Token throughput (tok/s):          4.16      
----------------Time to First Token----------------
-Mean TTFT (ms):                          262.70    
-Median TTFT (ms):                        262.36    
-P99 TTFT (ms):                           267.80    
------Time per Output Token (excl. 1st token)------
-Mean TPOT (ms):                          251.29    
-Median TPOT (ms):                        251.14    
-P99 TPOT (ms):                           251.62    
----------------Inter-token Latency----------------
-Mean ITL (ms):                           251.36    
-Median ITL (ms):                         251.08    
-P99 ITL (ms):                            257.26    
-==================================================
-
-
-
-
-curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "google/gemma-3-4b-it",
-    "messages": [
-      {"role": "user", "content": "Who are you?"}
-    ],
-    "max_tokens": 50
-  }'
-
-
-docker run -d \
-  --gpus all \
-  --ipc=host \
-  -p 8000:8000 \
-  -v ~/.cache/huggingface:/root/.cache/huggingface \
-  vllm/vllm-openai:latest \
-# --- VLLM FLAGS START ---
-  --model meta-llama/Meta-Llama-3-8B-Instruct \
-
-
-
-  --gpu-memory-utilization 0.95 \
-  --max-model-len 8192
-
-docker run -d \
-  --gpus all \
-  --ipc=host \
-  -p 8000:8000 \
-  -v ~/.cache/huggingface:/root/.cache/huggingface \
-  vllm/vllm-rocm:latest \
-# --- VLLM FLAGS START ---
-  --model mistralai/Ministral-3-3B-Instruct-2512 \
-
-
-  --network=host \
-
-  
-mistralai/Ministral-3-3B-Instruct-2512 
-
-
---chat-template ./path-to-chat-template.jinja
-
-docker run --rm -it \
-  --device /dev/kfd \
-  --device /dev/dri \
-  --group-add video \
-  --ipc=host \
-  --cap-add=SYS_PTRACE \
-  --security-opt seccomp=unconfined \
-  -e HSA_OVERRIDE_GFX_VERSION=11.0.0 \
-  rocm/dev-ubuntu-22.04 \
-  rocm-smi

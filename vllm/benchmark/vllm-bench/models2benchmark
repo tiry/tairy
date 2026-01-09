@@ -1,0 +1,42 @@
+# Models to benchmark
+# Format: model_name [concurrency] [num_prompts]
+# Lines starting with # are comments and will be ignored
+# If concurrency and num_prompts are not specified, defaults from config.yaml will be used
+
+# Basic format (uses defaults from config.yaml)
+#google/gemma-3-4b-it
+
+# With concurrency only (uses default num_prompts from config.yaml)
+# mistralai/Ministral-3-3B-Base-2512 16
+
+# With both concurrency and num_prompts
+#meta-llama/Llama-3.2-3B-Instruct 32 64
+#Qwen/Qwen3-4B-Instruct-2507 16 48
+
+#mistralai/Ministral-3-3B-Base-2512 1 32
+# mistralai/Ministral-3-3B-Base-2512 4 32
+# mistralai/Ministral-3-3B-Base-2512 8 64
+# mistralai/Ministral-3-3B-Base-2512 16 64
+# mistralai/Ministral-3-3B-Base-2512 32 128
+# mistralai/Ministral-3-3B-Base-2512 48 128
+# mistralai/Ministral-3-3B-Base-2512 64 256
+# mistralai/Ministral-3-3B-Base-2512 72 256
+# mistralai/Ministral-3-3B-Base-2512 80 256
+
+# meta-llama/Llama-3.2-3B-Instruct 1 32
+# meta-llama/Llama-3.2-3B-Instruct 4 32
+# meta-llama/Llama-3.2-3B-Instruct 8 64
+# meta-llama/Llama-3.2-3B-Instruct 16 64
+# meta-llama/Llama-3.2-3B-Instruct 32 128
+# meta-llama/Llama-3.2-3B-Instruct 48 128
+# meta-llama/Llama-3.2-3B-Instruct 64 256
+# meta-llama/Llama-3.2-3B-Instruct 72 256
+# meta-llama/Llama-3.2-3B-Instruct 80 256
+
+# google/gemma-3-4b-it 100 256
+# mistralai/Ministral-3-3B-Base-2512 100 256
+# meta-llama/Llama-3.2-3B-Instruct 100 256
+
+google/gemma-3-4b-it 120 256
+mistralai/Ministral-3-3B-Base-2512 120 256
+meta-llama/Llama-3.2-3B-Instruct 120 256
