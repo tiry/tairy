@@ -1,8 +1,7 @@
-## 🤖 LLM Tools
 
 Scripts for managing and running llama.cpp with various backends (ROCm, Vulkan, CUDA).
 
-### `run-llamacpp.sh`
+## `run-llamacpp.sh`
 
 Unified interface to run llama.cpp with support for multiple backends and operational modes.
 
@@ -42,7 +41,7 @@ Unified interface to run llama.cpp with support for multiple backends and operat
 
 ---
 
-### `update-llamacpp.sh`
+## `update-llamacpp.sh`
 
 Updates and rebuilds llama.cpp from the upstream repository with support for multiple GPU backends.
 

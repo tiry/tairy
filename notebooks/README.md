@@ -60,3 +60,31 @@ Press `Ctrl+C` in the terminal to stop the Jupyter server.
 - All your notebooks should be saved in the `notebooks/notebooks/` subdirectory
 - The virtual environment is isolated and won't affect your system Python
 - The script uses Python 3 by default
+
+## Available Notebooks
+
+### LLM Inference Notebooks
+
+- **CPU_Inference.ipynb** - Run LLM inference on CPU using transformers library
+- **Cuda-Inference.ipynb** - Run LLM inference on NVIDIA GPUs using CUDA
+- **Cuda-Inference-Mistral.ipynb** - Run Mistral model inference on NVIDIA GPUs
+- **ROCm-Inference.ipynb** - Run LLM inference on AMD GPUs using ROCm
+- **Rocm-Inference-Mistral.ipynb** - Run Mistral model inference on AMD GPUs
+- **Mistral7B.ipynb** - Work with Mistral 7B model (general usage)
+- **Mitstral7B verlan inference.ipynb** - Mistral 7B inference with Verlan (French slang) fine-tuned model
+
+### LLM Fine-Tuning Notebooks
+
+- **Mistral7B-FineTune.ipynb** - Fine-tune Mistral 7B model on custom datasets
+- **embeddings.ipynb** - Work with text embeddings and vector representations
+
+### Stable Diffusion Notebooks
+
+- **SDXL.ipynb** - Generate images using Stable Diffusion XL base model
+- **SDXL-LORA.ipynb** - Generate images using Stable Diffusion XL with LoRA fine-tuning
+- **SD-LORA.ipynb** - Generate images using Stable Diffusion 1.5 with LoRA fine-tuning
+- **Image_DataSet_processing.ipynb** - Preprocess and prepare image datasets for training
+
+### Utility Notebooks
+
+- **version.ipynb** - Check installed library versions and system information
