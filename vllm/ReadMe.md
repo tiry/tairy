@@ -26,6 +26,9 @@ Use `vllm bench serve` to generate a token generation throughput benchmark for d
 
 <img src="benchmark/vllm-bench/plots/throughput_vs_concurrency_rocm.png"/>
 
+<img src="benchmark/vllm-bench/plots/throughput_vs_concurrency_cuda.png"/>
+
+<img src="benchmark/vllm-bench/plots/llama_cuda_vs_rocm_comparison.png"/>
 
 
 ## Setup 

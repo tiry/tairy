@@ -20,6 +20,7 @@ TEMPERATURE=0.3
 TOP_P=0.75
 REQUEST_RATE=inf
 DATASET_PATH="prompts.jsonl"
+MAX_MODEL_LEN=4096
 DRY_RUN=false
 
 # Colors for output
@@ -55,6 +56,7 @@ Options:
     --temperature NUM       Temperature (default: 0.3)
     --top-p NUM             Top-p value (default: 0.75)
     --request-rate NUM      Request rate (default: inf)
+    --max-model-len NUM     Maximum model context length (default: 4096)
 
 Examples:
     $0 mistralai/Mistral-Nemo-Instruct-2407
@@ -164,6 +166,7 @@ CLI_NUM_PROMPTS=""
 CLI_TEMPERATURE=""
 CLI_TOP_P=""
 CLI_REQUEST_RATE=""
+CLI_MAX_MODEL_LEN=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -198,6 +201,10 @@ while [[ $# -gt 0 ]]; do
             CLI_REQUEST_RATE="$2"
             shift 2
             ;;
+        --max-model-len)
+            CLI_MAX_MODEL_LEN="$2"
+            shift 2
+            ;;
         -*)
             print_error "Unknown option: $1"
             usage
@@ -224,6 +231,7 @@ parse_benchmark_config
 [[ -n "$CLI_TEMPERATURE" ]] && TEMPERATURE="$CLI_TEMPERATURE"
 [[ -n "$CLI_TOP_P" ]] && TOP_P="$CLI_TOP_P"
 [[ -n "$CLI_REQUEST_RATE" ]] && REQUEST_RATE="$CLI_REQUEST_RATE"
+[[ -n "$CLI_MAX_MODEL_LEN" ]] && MAX_MODEL_LEN="$CLI_MAX_MODEL_LEN"
 
 # Create log directory structure
 mkdir -p "$RUN_LOG_DIR"
@@ -236,6 +244,7 @@ num_prompts=$NUM_PROMPTS
 temperature=$TEMPERATURE
 top_p=$TOP_P
 request_rate=$REQUEST_RATE
+max_model_len=$MAX_MODEL_LEN
 dataset_path=$DATASET_PATH
 timestamp=$TIMESTAMP
 config_file=$CONFIG_FILE
@@ -273,6 +282,7 @@ print_info "Number of prompts: $NUM_PROMPTS"
 print_info "Temperature: $TEMPERATURE"
 print_info "Top-p: $TOP_P"
 print_info "Request rate: $REQUEST_RATE"
+print_info "Max model length: $MAX_MODEL_LEN"
 if [[ -n "$MODEL_ARGS" ]]; then
     print_info "Model-specific args: $MODEL_ARGS"
 else
@@ -292,7 +302,7 @@ if [[ "$DRY_RUN" == true ]]; then
     print_info "Commands that would be executed:"
     echo ""
     echo -e "${YELLOW}# 1. Start vLLM server:${NC}"
-    echo "vllm serve \"$MODEL_NAME\" $MODEL_ARGS > \"$SERVER_LOG\" 2>&1 &"
+    echo "vllm serve \"$MODEL_NAME\" --max-model-len $MAX_MODEL_LEN $MODEL_ARGS > \"$SERVER_LOG\" 2>&1 &"
     echo ""
     echo -e "${YELLOW}# 2. Monitor for server startup (checking for 'Application startup complete')${NC}"
     echo ""
@@ -331,15 +341,15 @@ fi
 
 # Start vLLM server
 print_info "Starting vLLM server..."
-print_info "Command: vllm serve \"$MODEL_NAME\" $MODEL_ARGS"
+print_info "Command: vllm serve \"$MODEL_NAME\" --max-model-len $MAX_MODEL_LEN $MODEL_ARGS"
 
 # Run vllm serve directly (not through bash -c) with nohup for proper daemonization
 if [[ -n "$MODEL_ARGS" ]]; then
     # With model args - need to use eval to properly expand
-    eval "nohup vllm serve \"$MODEL_NAME\" $MODEL_ARGS > \"$SERVER_LOG\" 2>&1 &"
+    eval "nohup vllm serve \"$MODEL_NAME\" --max-model-len $MAX_MODEL_LEN $MODEL_ARGS > \"$SERVER_LOG\" 2>&1 &"
 else
     # Without model args
-    nohup vllm serve "$MODEL_NAME" > "$SERVER_LOG" 2>&1 &
+    nohup vllm serve "$MODEL_NAME" --max-model-len $MAX_MODEL_LEN > "$SERVER_LOG" 2>&1 &
 fi
 VLLM_PID=$!
 

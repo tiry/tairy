@@ -24,7 +24,9 @@ models:
   
   # Standard models that work without additional parameters
   "google/gemma-3-4b-it":
-    vllm_args: []
+    vllm_args:
+      - "--max-num-seqs"
+      - "64"
   
   "meta-llama/Llama-3.2-3B-Instruct":
     vllm_args: []

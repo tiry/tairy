@@ -193,8 +193,16 @@ def process_log_directory(logs_dir: Path) -> List[Dict]:
         bench_results = parse_benchmark_results(run_dir)
         row.update(bench_results)
         
-        # Only add row if we have at least some benchmark data
-        if bench_results or row['model_name'] != 'N/A':
+        # Check if last 4 columns have valid (non-empty) values
+        last_four_columns = ['output_throughput', 'peak_output_throughput', 
+                            'peak_concurrent_requests', 'total_throughput']
+        has_valid_metrics = all(
+            row.get(col) not in ['N/A', None, '', 'nan'] 
+            for col in last_four_columns
+        )
+        
+        # Only add row if we have valid data for all last 4 columns
+        if has_valid_metrics:
             results.append(row)
     
     return results

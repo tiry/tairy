@@ -19,11 +19,13 @@ Code and results for testing GPU configurations, mainly for AI workloads (LLM in
 
 ## Repository Structure
 
-- **`benchmark/`** - LLM inference benchmarks and performance comparisons
+- **`benchmark/`** - LLM inference benchmarks and performance comparisons using llama.cpp
 - **`scripts/`** - Helper scripts for building and running llama.cpp and other tools
 - **`notebooks/`** - Jupyter notebooks for various AI experiments
 - **`utils/`** - Utility scripts for model conversion and downloads
 - **`install/`** - Installation guides and setup documentation
+- **`vllm/`** - Installation guides and and benchmarks using vllm
+
 
 ## Benchmarks
 

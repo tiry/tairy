@@ -15,6 +15,130 @@ from typing import Dict, List
 import numpy as np
 
 
+def generate_llama_comparison_plot(df: pd.DataFrame, output_dir: Path):
+    """Generate a comparison plot for Llama models across CUDA and ROCm."""
+    
+    # Filter for Llama models (case-insensitive)
+    llama_df = df[df['model_name'].str.contains('llama', case=False, na=False)].copy()
+    
+    if llama_df.empty:
+        print("No Llama models found in data, skipping comparison plot...")
+        return
+    
+    # Check if we have both CUDA and ROCm data
+    architectures = llama_df['architecture'].unique()
+    if len(architectures) < 2:
+        print(f"Only {architectures} architecture found for Llama models, skipping comparison plot...")
+        return
+    
+    print("Generating Llama CUDA vs ROCm comparison plot...")
+    
+    # Create figure
+    plt.figure(figsize=(14, 8))
+    
+    # Get unique Llama models
+    llama_models = llama_df['model_name'].unique()
+    
+    # Define colors for CUDA vs ROCm
+    cuda_color = '#76b900'  # NVIDIA green
+    rocm_color = '#ed1c24'  # AMD red
+    
+    # For each Llama model, plot CUDA and ROCm data
+    for model in llama_models:
+        model_data = llama_df[llama_df['model_name'] == model].copy()
+        model_short = model.split('/')[-1] if '/' in model else model
+        
+        # Plot CUDA data
+        cuda_data = model_data[model_data['architecture'] == 'CUDA'].copy()
+        if not cuda_data.empty:
+            cuda_data = cuda_data.sort_values('concurrency')
+            plt.plot(
+                cuda_data['concurrency'],
+                cuda_data['total_throughput'],
+                marker='o',
+                markersize=10,
+                linewidth=2.5,
+                color=cuda_color,
+                label=f'{model_short} (CUDA)',
+                alpha=0.8,
+                linestyle='-'
+            )
+            
+            # Add value labels
+            for _, row in cuda_data.iterrows():
+                plt.annotate(
+                    f"{row['total_throughput']:.1f}",
+                    (row['concurrency'], row['total_throughput']),
+                    textcoords="offset points",
+                    xytext=(0, 10),
+                    ha='center',
+                    fontsize=9,
+                    alpha=0.7,
+                    color=cuda_color,
+                    fontweight='bold'
+                )
+        
+        # Plot ROCm data
+        rocm_data = model_data[model_data['architecture'] == 'ROCm'].copy()
+        if not rocm_data.empty:
+            rocm_data = rocm_data.sort_values('concurrency')
+            plt.plot(
+                rocm_data['concurrency'],
+                rocm_data['total_throughput'],
+                marker='s',
+                markersize=10,
+                linewidth=2.5,
+                color=rocm_color,
+                label=f'{model_short} (ROCm)',
+                alpha=0.8,
+                linestyle='--'
+            )
+            
+            # Add value labels
+            for _, row in rocm_data.iterrows():
+                plt.annotate(
+                    f"{row['total_throughput']:.1f}",
+                    (row['concurrency'], row['total_throughput']),
+                    textcoords="offset points",
+                    xytext=(0, -15),
+                    ha='center',
+                    fontsize=9,
+                    alpha=0.7,
+                    color=rocm_color,
+                    fontweight='bold'
+                )
+    
+    # Customize plot
+    plt.xlabel('Concurrency', fontsize=13, fontweight='bold')
+    plt.ylabel('Total Throughput (tok/s)', fontsize=13, fontweight='bold')
+    plt.title('Llama Performance Comparison: CUDA vs ROCm\nThroughput vs Concurrency', 
+              fontsize=15, fontweight='bold', pad=20)
+    plt.grid(True, alpha=0.3, linestyle='--')
+    plt.legend(loc='best', fontsize=11, framealpha=0.95, shadow=True)
+    
+    # Add some padding to y-axis
+    ymin, ymax = plt.ylim()
+    plt.ylim(ymin * 0.9, ymax * 1.15)
+    
+    # Set x-axis to show integer concurrency values
+    plt.gca().xaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    
+    # Add a watermark/note
+    plt.text(0.99, 0.01, 'CUDA (circles, solid) vs ROCm (squares, dashed)',
+             transform=plt.gca().transAxes, ha='right', va='bottom',
+             fontsize=9, alpha=0.5, style='italic')
+    
+    # Tight layout
+    plt.tight_layout()
+    
+    # Save plot
+    output_file = output_dir / 'llama_cuda_vs_rocm_comparison.png'
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"Saved comparison plot: {output_file}")
+    
+    plt.close()
+
+
 def generate_plots(csv_file: Path, output_dir: Path):
     """Generate throughput vs concurrency plots for each architecture."""
     
@@ -128,6 +252,11 @@ def generate_plots(csv_file: Path, output_dir: Path):
         print(f"Saved plot: {output_file}")
         
         plt.close()
+    
+    # Generate Llama comparison plot (CUDA vs ROCm)
+    print("\n" + "="*60)
+    generate_llama_comparison_plot(df, output_dir)
+    print("="*60)
     
     print(f"\nAll plots saved to: {output_dir}")
 

@@ -26,4 +26,19 @@ then run the benchmarks from `/opt/vllm-bench`
 
 ### Cuda
 
+from the benchmark directory
 
+
+   docker run -it \
+    --entrypoint /bin/bash \
+    --gpus all \
+    --ipc=host \
+    -p 8000:8000 \
+    --security-opt seccomp=unconfined \
+    -v ~/.cache/huggingface:/root/.cache/huggingface \
+    -v ./vllm-bench:/opt/vllm-bench \
+    vllm/vllm-openai:latest \
+    bash
+
+
+then run the benchmarks from `/opt/vllm-bench`
