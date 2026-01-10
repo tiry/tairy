@@ -12,13 +12,19 @@ Bsed on documentation, I will assume:
 | `vllm/vllm-omni` | **NVIDIA GPU** (CUDA) | Y | Y | Audio & Video |
 | `vllm/vllm-omni-rocm` | **AMD GPU** (ROCm) | Y | Y | Audio & Video |
 
+It seems that the benchmarking tools are only available inside the `omni` image so the 2 target imagaes are:
+
+ - CUDA: `vllm/vllm-omni`
+ - ROCm: `vllm/vllm-omni-rocm`
+
 ### Model used for tests
+
+Based on the constraints listed below, I select 4 models that can run in FP16 on the 2 GPUs:
 
   - `google/gemma-3-4b-it`
   - `mistralai/Ministral-3-3B-Base-2512` (base model is in BF16)
   - `meta-llama/Llama-3.2-3B-Instruct`
   - `Qwen/Qwen3-4B-Instruct-2507`
-
 
 ## Batch Inference
 
@@ -29,7 +35,6 @@ Use `vllm bench serve` to generate a token generation throughput benchmark for d
 <img src="benchmark/vllm-bench/plots/throughput_vs_concurrency_cuda.png"/>
 
 <img src="benchmark/vllm-bench/plots/llama_cuda_vs_rocm_comparison.png"/>
-
 
 ## Setup 
 
@@ -113,6 +118,47 @@ From within container:
     0       1     0x1586,   43175  49.0°C  10.029W   N/A, N/A, 0         N/A   N/A   0%   auto  N/A     1%     1%    
     ==================================================================================================================
     ============================================== End of ROCm SMI Log ===============================================
+
+## Running vllm
+
+### ROCm
+
+from the benchmark directory
+
+
+    docker run -it \
+        --device /dev/kfd \
+        --device /dev/dri \
+        --group-add video \
+        --ipc=host \
+        -p 8000:8000 \
+        -e HSA_OVERRIDE_GFX_VERSION=11.0.0 \
+        -e VLLM_USE_V1=0 \
+        --cap-add=SYS_PTRACE \
+        --security-opt seccomp=unconfined \
+        -v ~/.cache/huggingface:/root/.cache/huggingface \
+        -v ./vllm-bench:/opt/vllm-bench \
+        vllm/vllm-omni-rocm:v0.12.0rc1 \
+        bash
+
+then run the benchmarks from `/opt/vllm-bench`
+
+### Cuda
+
+from the benchmark directory
+
+    docker run -it \
+        --entrypoint /bin/bash \
+        --gpus all \
+        --ipc=host \
+        -p 8000:8000 \
+        --security-opt seccomp=unconfined \
+        -v ~/.cache/huggingface:/root/.cache/huggingface \
+        -v ./vllm-bench:/opt/vllm-bench \
+        vllm/vllm-omni:v0.12.0rc1
+    
+then run the benchmarks from `/opt/vllm-bench`
+
 
 ## Model Selection
 
