@@ -7,10 +7,20 @@
 
 <img src="../llama.cpp/benchmark/benchmark_comparison.png"></ing>
 
+Take aways:
+
+ - CUDA/4070Ti is ~2.5x faster than Rocm/Strix Halo
+ - While native "drivers" (CUDA/ROCm) are faster than Vulkan, the difference is not very significant
+
 ## llama.cpp vs pytorch
 
 <img src="../llama.cpp/benchmark/benchmark_inference_comparison.png"></ing>
 
+Take aways:
+
+ - llama.cpp with pure C/C++ does better than pytorch
+ - my pytorch setup may be sub-optimal though
+ 
 ## vllm inference
 
 ### Batch Inference
@@ -22,6 +32,12 @@ Use `vllm bench serve` to create a token generation throughput benchmark for dif
 <img src="../vllm/benchmark/vllm-bench/plots/throughput_vs_concurrency_cuda.png"/>
 
 <img src="../vllm/benchmark/vllm-bench/plots/llama_cuda_vs_rocm_comparison.png"/>
+
+
+Take aways:
+
+ - Confirms CUDA/NVidia runs much faster than ROCm/AMD
+ - Proper batching is key to get high throughput, but it does not make a lot of sense for my local use cases.
 
 # Comparing llama.cpp and vllm
 
@@ -38,7 +54,13 @@ Use `vllm bench serve` to create a token generation throughput benchmark for dif
 
 <img src="benchmark_comparison.png"/>
 
-## Model Selection
+
+Take aways:
+
+ - Confirms vllm is mainly tried to NVidia and AMD support is still very much behind
+ - llama.cpp does better for all use cases for local inference
+
+## Model Selection for the benchmark
 
 ### Issues with Quantization
 
@@ -75,8 +97,6 @@ Meaning a lot of models will not load on the NVidia card with 12GB:
   - mistralai/Mistral-Small-Instruct-2409 is too big 22B
   - mistralai/Mistral-Nemo-Instruct-2407 is too big 12B
   - meta-llama/Llama-3.2-8B-Instruct
-
-
 
 ## Does it makes sense to compare
 
