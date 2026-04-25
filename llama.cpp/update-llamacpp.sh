@@ -1,97 +1,107 @@
 #!/bin/bash
 
 # --- Configuration ---
-# Set the paths to your llama.cpp directory and build folders
 LLAMA_DIR="/home/tiry/llama.cpp"
-ROCM_BUILD_DIR="build-rocm" # Renamed for clarity
+ROCM_BUILD_DIR="build-rocm"
 VULKAN_BUILD_DIR="build-vulkan"
-CUDA_BUILD_DIR="build-cuda" # New build folder for CUDA
+CUDA_BUILD_DIR="build-cuda"
 
-# --- Script Logic ---
+# --- Defaults ---
+FORCE_REBUILD=false
+CLEAN_REBUILD=false
+TARGET_ARCH="all"
 
-# Check for a specific architecture argument
-# Default to 'all' if no argument is provided
-TARGET_ARCH=${1:-all}
-# Convert argument to lowercase for easier checking
-TARGET_ARCH=$(echo "$TARGET_ARCH" | tr '[:upper:]' '[:lower:]')
+# --- Functions ---
 
-# Function to check if a specific architecture is requested
+show_help() {
+    echo "Usage: $(basename "$0") [OPTIONS] [ARCHITECTURE]"
+    echo ""
+    echo "Architectures:"
+    echo "  all (default), cuda, rocm, vulkan"
+    echo ""
+    echo "Options:"
+    echo "  -f    Force rebuild even if Git is up to date"
+    echo "  -c    Clean build (removes build directories first)"
+    echo "  -h    Display this help message"
+    echo ""
+    echo "Example:"
+    echo "  $(basename "$0") -f -c cuda"
+    exit 0
+}
+
 should_build() {
     [[ "$TARGET_ARCH" == "all" || "$TARGET_ARCH" == "$1" ]]
 }
 
-# Exit immediately if any command fails
-set -e
+run_build() {
+    local dir=$1
+    local cmake_args=$2
+    
+    if [ "$CLEAN_REBUILD" = true ]; then
+        echo "--- Cleaning $dir... ---"
+        rm -rf "$dir"
+    fi
 
-# 1. Navigate to the llama.cpp directory
-echo "=== Navigating to $LLAMA_DIR ==="
+    echo "--- Building in '$dir'... ---"
+    cmake -S . -B "$dir" $cmake_args -DCMAKE_BUILD_TYPE=Release
+    cmake --build "$dir" --config Release -- -j $(nproc)
+}
+
+# --- Parse Flags ---
+
+while getopts "fch" opt; do
+    case "$opt" in
+        f) FORCE_REBUILD=true ;;
+        c) CLEAN_REBUILD=true ;;
+        h) show_help ;;
+        *) show_help ;;
+    esac
+done
+
+# Shift off the options to get the positional architecture argument
+shift $((OPTIND-1))
+TARGET_ARCH=${1:-all}
+TARGET_ARCH=$(echo "$TARGET_ARCH" | tr '[:upper:]' '[:lower:]')
+
+# --- Logic ---
+
+set -e
 cd "$LLAMA_DIR"
 
-# 2. Check out the main branch
-echo "=== Checking out main branch... ==="
-# Attempt to checkout 'main', fall back to 'master'
+# Git Management
+echo "=== Checking Git Status ==="
 git checkout main 2>/dev/null || git checkout master
-
-# 3. Pull updates from Git
-echo "=== Pulling latest updates from Git... ==="
 PULL_OUTPUT=$(git pull)
 
-# 4. Check if a rebuild is needed (Only skip if targeting 'all' and already up to date)
-if [[ "$TARGET_ARCH" == "all" ]] && echo "$PULL_OUTPUT" | grep -q "Already up to date."; then
-    echo "Llama.cpp is already up to date. No rebuild necessary."
+# Determine if we proceed
+if [[ "$PULL_OUTPUT" == *"Already up to date."* ]] && [ "$FORCE_REBUILD" = false ]; then
+    echo "Llama.cpp is already up to date. Use -f to force rebuild."
     exit 0
-else
-    if [[ "$TARGET_ARCH" != "all" ]]; then
-        echo "=== Building ONLY the '$TARGET_ARCH' architecture... ==="
-    else
-        echo "=== Updates found or building all architectures. Starting rebuild... ==="
-    fi
-
-    # --- Rebuild 1: CUDA (NVIDIA) ---
-    if should_build "cuda"; then
-        echo "--- Rebuilding CUDA version in '$CUDA_BUILD_DIR'... ---"
-
-        # Note: CUDA version often requires an older build method or just 'make'
-        # but using 'cmake' with DGGML_CUDA=ON is the standard approach now.
-        # We use CMAKE_BUILD_TYPE=Release for optimization.
-        cmake -S . -B "$CUDA_BUILD_DIR" -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
-        cmake --build "$CUDA_BUILD_DIR" --config Release -- -j 16
-
-        echo "--- CUDA build complete. ---"
-
-        # 5. Simple Test Run for CUDA (Ensure you have a model like 'ggml-model-q4_0.bin' for this to work)
-        if [ -f "$CUDA_BUILD_DIR/bin/main" ] && [ -f "./models/ggml-model-q4_0.bin" ]; then
-            echo "--- Running a quick test with CUDA version... ---"
-            # This is a very minimal inference command
-            "$CUDA_BUILD_DIR/bin/main" -m ./models/ggml-model-q4_0.bin -n 10 --n-gpu-layers 999 -p "Hello" --silent-prompt
-            echo "--- CUDA test run finished. ---"
-        elif [ -f "$CUDA_BUILD_DIR/bin/main" ]; then
-            echo "--- CUDA build successful. Skipping test run: Model not found at ./models/ggml-model-q4_0.bin ---"
-        fi
-    fi
-
-    # --- Rebuild 2: ROCm (AMD High-Performance) ---
-    if should_build "rocm"; then
-        echo "--- Rebuilding ROCm version in '$ROCM_BUILD_DIR'... ---"
-
-        # Existing ROCm build logic
-        HIPCXX="$(hipconfig -l)/clang" HIP_PATH="$(hipconfig -R)" \
-        cmake -S . -B "$ROCM_BUILD_DIR" -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release
-        cmake --build "$ROCM_BUILD_DIR" --config Release -- -j 16
-
-        echo "--- ROCm build complete. ---"
-    fi
-
-    # --- Rebuild 3: Vulkan (Compatibility) ---
-    if should_build "vulkan"; then
-        echo "--- Rebuilding Vulkan version in '$VULKAN_BUILD_DIR'... ---"
-
-        # The Vulkan build logic needs to be simplified to run from the root, like the others
-        cmake -S . -B "$VULKAN_BUILD_DIR" -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release
-        cmake --build "$VULKAN_BUILD_DIR" --config Release -- -j 16
-
-        echo "--- Vulkan build complete. ---"
-    fi
-
-    echo "=== Build process finished for target architecture(s): $TARGET_ARCH ==="
 fi
+
+# --- Execution ---
+
+# CUDA
+if should_build "cuda"; then
+    run_build "$CUDA_BUILD_DIR" "-DGGML_CUDA=ON"
+    
+    # Quick Test
+    if [ -f "$CUDA_BUILD_DIR/bin/llama-cli" ] && [ -f "./models/ggml-model-q4_0.bin" ]; then
+        echo "--- Running CUDA test... ---"
+        "$CUDA_BUILD_DIR/bin/llama-cli" -m ./models/ggml-model-q4_0.bin -n 10 --n-gpu-layers 999 -p "Hello" --silent-prompt
+    fi
+fi
+
+# ROCm
+if should_build "rocm"; then
+    # Passing environment variables inline for ROCm
+    HIPCXX="$(hipconfig -l)/clang" HIP_PATH="$(hipconfig -R)" \
+    run_build "$ROCM_BUILD_DIR" "-DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151"
+fi
+
+# Vulkan
+if should_build "vulkan"; then
+    run_build "$VULKAN_BUILD_DIR" "-DGGML_VULKAN=ON"
+fi
+
+echo "=== Build process finished for: $TARGET_ARCH ==="
